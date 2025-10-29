@@ -277,7 +277,7 @@ async function main() {
       assets: ['BTC', 'ETH'],
       maxPositionSize: 0.05, // 5%
       maxLeverage: 5
-    })
+    }, dreamsRouter)
 
     // Start trading loop in background
     tradingLoop.start().catch(error => {

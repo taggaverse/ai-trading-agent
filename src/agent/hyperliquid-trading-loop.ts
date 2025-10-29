@@ -7,6 +7,7 @@ import logger from '../utils/logger.js'
 import { HyperliquidAPI } from './hyperliquid-client.js'
 import { IndicatorsClient } from './indicators-client.js'
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './hyperliquid-system-prompt.js'
+import { selectModel } from './router.js'
 
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
@@ -41,15 +42,18 @@ export class HyperliquidTradingLoop {
   private config: TradeLoopConfig
   private state: TradeLoopState
   private running: boolean = false
+  private dreamsRouter: any
 
   constructor(
     hyperliquidAPI: HyperliquidAPI,
     indicatorsClient: IndicatorsClient,
-    config: TradeLoopConfig
+    config: TradeLoopConfig,
+    dreamsRouter?: any
   ) {
     this.hyperliquidAPI = hyperliquidAPI
     this.indicatorsClient = indicatorsClient
     this.config = config
+    this.dreamsRouter = dreamsRouter
     this.state = {
       iteration: 0,
       lastUpdate: 0,
@@ -188,17 +192,34 @@ export class HyperliquidTradingLoop {
   }
 
   /**
-   * Call LLM with context (mock implementation)
+   * Call LLM with context via Dreams Router
+   * TODO: Integrate with real Dreams Router when API is available
    */
   private async callLLM(context: Record<string, any>): Promise<TradeDecision[]> {
-    // TODO: Implement actual LLM call via Dreams Router
-    // For now, return mock decisions
-    logger.info('   [Mock LLM] Analyzing market...')
+    try {
+      logger.info('   [LLM] Analyzing market with Dreams Router...')
 
+      // TODO: Replace with real Dreams Router call
+      // For now, use mock decisions with system prompt guidance
+      // const modelName = selectModel('medium') // GPT-4o for best quality
+      // const response = await this.dreamsRouter(modelName)({ ... })
+
+      // Using mock decisions for now
+      logger.info('   [Mock LLM] Using RSI-based mock decisions')
+      return this.getMockDecisions(context)
+    } catch (error) {
+      logger.error('   ✗ LLM call failed:', error)
+      return this.getMockDecisions(context)
+    }
+  }
+
+  /**
+   * Get mock decisions (fallback)
+   */
+  private getMockDecisions(context: Record<string, any>): TradeDecision[] {
     const decisions: TradeDecision[] = []
 
     for (const asset of this.config.assets) {
-      // Mock decision logic
       const indicators = context.marketData[asset]?.['5m']
       if (!indicators) continue
 
