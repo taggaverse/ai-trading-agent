@@ -17,6 +17,7 @@ import { hyperliquidExtension } from "./extensions/hyperliquid-extension.js"
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from "./agent/hyperliquid-system-prompt.js"
 import { HyperliquidAPI } from "./agent/hyperliquid-client.js"
 import { IndicatorsClient } from "./agent/indicators-client.js"
+import { HyperliquidTradingLoop } from "./agent/hyperliquid-trading-loop.js"
 
 const app = express()
 
@@ -268,6 +269,20 @@ async function main() {
       logger.info(`   - Portfolio: http://${apiHost}:${apiPort}/portfolio`)
       logger.info(`   - Chains: http://${apiHost}:${apiPort}/chains`)
       logger.info(`   - Stats: http://${apiHost}:${apiPort}/stats`)
+    })
+
+    // Initialize Hyperliquid trading loop
+    const tradingLoop = new HyperliquidTradingLoop(hyperliquidAPI, indicatorsClient, {
+      tradingInterval: tradingInterval,
+      assets: ['BTC', 'ETH'],
+      maxPositionSize: 0.05, // 5%
+      maxLeverage: 5
+    })
+
+    // Start trading loop in background
+    tradingLoop.start().catch(error => {
+      logger.error("Fatal trading loop error:", error)
+      process.exit(1)
     })
 
     // Main trading loop
