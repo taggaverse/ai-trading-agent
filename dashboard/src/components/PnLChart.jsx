@@ -19,25 +19,36 @@ export default function PnLChart({ diary, portfolio, stats }) {
       // Sum up all balances across chains
       let totalBalance = 0
       
-      // Hyperliquid USDC
-      if (portfolio.balances.hyperliquid?.usdc) {
-        totalBalance += portfolio.balances.hyperliquid.usdc
-      }
+      // Handle both old and new portfolio structure
+      // New structure: portfolio.balances.chain.balance
+      // Old structure: portfolio.balances.chain.usdc/eth/sol/bnb
       
-      // Base ETH (convert to USDC equivalent - approximate)
-      if (portfolio.balances.base?.eth) {
-        totalBalance += portfolio.balances.base.eth * 2500 // Approximate ETH price
-      }
-      
-      // Solana SOL (convert to USDC equivalent - approximate)
-      if (portfolio.balances.solana?.sol) {
-        totalBalance += portfolio.balances.solana.sol * 100 // Approximate SOL price
-      }
-      
-      // BSC BNB (convert to USDC equivalent - approximate)
-      if (portfolio.balances.bsc?.bnb) {
-        totalBalance += portfolio.balances.bsc.bnb * 600 // Approximate BNB price
-      }
+      Object.entries(portfolio.balances).forEach(([chain, data]) => {
+        if (data && typeof data === 'object') {
+          // If it has a balance property (new structure)
+          if (typeof data.balance === 'number') {
+            const balance = data.balance
+            const gasToken = data.gasToken
+            
+            // Convert to USDC equivalent based on token type
+            if (gasToken === 'USDC') {
+              totalBalance += balance
+            } else if (gasToken === 'ETH') {
+              totalBalance += balance * 2500 // Approximate ETH price
+            } else if (gasToken === 'SOL') {
+              totalBalance += balance * 100 // Approximate SOL price
+            } else if (gasToken === 'BNB') {
+              totalBalance += balance * 600 // Approximate BNB price
+            }
+          } else {
+            // Old structure: check for specific tokens
+            if (data.usdc) totalBalance += data.usdc
+            if (data.eth) totalBalance += data.eth * 2500
+            if (data.sol) totalBalance += data.sol * 100
+            if (data.bnb) totalBalance += data.bnb * 600
+          }
+        }
+      })
       
       if (totalBalance > 0) {
         actualBalance = totalBalance
