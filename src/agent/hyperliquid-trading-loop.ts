@@ -208,9 +208,22 @@ export class HyperliquidTradingLoop {
     try {
       logger.info('   [LLM] Calling Dreams Router for trading decisions...')
 
+      // Check balance before calling LLM
+      if (this.paymentManager) {
+        const hasFunds = await this.paymentManager.hasSufficientBalance(X402_COSTS.LLM_CALL)
+        if (!hasFunds) {
+          logger.warn(`⚠️  Insufficient x402 balance for LLM call, using mock decisions`)
+          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Insufficient balance')
+          return this.getMockDecisions(context)
+        }
+      }
+
       // If no dreams router available, use mock
       if (!this.dreamsRouter) {
         logger.info('   [Mock LLM] Dreams Router not available, using mock decisions')
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Router unavailable')
+        }
         return this.getMockDecisions(context)
       }
 
@@ -240,7 +253,6 @@ Return ONLY valid JSON array, no other text.`
       const model = this.dreamsRouter(modelName)
 
       // Call the model with OpenAI-compatible format
-      // The model is typically used with fetch or axios
       let response: any
       
       try {
@@ -269,10 +281,16 @@ Return ONLY valid JSON array, no other text.`
         } else {
           // Fallback to mock if model is not callable
           logger.warn('   ✗ Model is not callable, using mock decisions')
+          if (this.paymentManager) {
+            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Model not callable')
+          }
           return this.getMockDecisions(context)
         }
       } catch (callError) {
         logger.error('   ✗ Failed to call model:', callError)
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Call error: ${callError instanceof Error ? callError.message : 'Unknown'}`)
+        }
         return this.getMockDecisions(context)
       }
 
@@ -287,18 +305,31 @@ Return ONLY valid JSON array, no other text.`
         if (jsonMatch) {
           decisions = JSON.parse(jsonMatch[0])
           logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
+          // Record successful LLM call
+          if (this.paymentManager) {
+            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, `Generated ${decisions.length} decisions`)
+          }
         } else {
           logger.warn('   ✗ No JSON array found in LLM response')
+          if (this.paymentManager) {
+            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'No JSON in response')
+          }
           decisions = this.getMockDecisions(context)
         }
       } catch (parseError) {
         logger.error('   ✗ Failed to parse LLM response:', parseError)
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown'}`)
+        }
         decisions = this.getMockDecisions(context)
       }
 
       return decisions
     } catch (error) {
       logger.error('   ✗ LLM call failed:', error)
+      if (this.paymentManager) {
+        this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Error: ${error instanceof Error ? error.message : 'Unknown'}`)
+      }
       // Fall back to mock decisions
       return this.getMockDecisions(context)
     }
