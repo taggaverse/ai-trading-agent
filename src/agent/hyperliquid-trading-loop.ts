@@ -168,7 +168,10 @@ export class HyperliquidTradingLoop {
       logger.info(`   Decisions received: ${decisions.length}`)
 
       // Step 5: Execute decisions
-      logger.info('Step 5: Executing trading decisions...')
+      logger.info(`Step 5: Executing trading decisions... (${decisions.length} decisions)`)
+      if (!decisions || decisions.length === 0) {
+        logger.warn('   ⚠️  No decisions to execute')
+      }
       for (const decision of decisions) {
         try {
           await this.executeDecision(decision, portfolioState)
