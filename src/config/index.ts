@@ -71,21 +71,16 @@ const configSchema = z.object({
   // Base
   BASE_RPC_URL: z.string().default("https://mainnet.base.org"),
   BASE_PRIVATE_KEY: z.string(),
-  
   // Solana
-  SOLANA_RPC_URL: z.string().default("https://api.mainnet-beta.solana.com"),
-  SOLANA_PRIVATE_KEY: z.string(),
-  
-  // Hyperliquid
-  HYPERLIQUID_PRIVATE_KEY: z.string(),
-  HYPERLIQUID_TESTNET: z.string().default("false"),
-  HYPERLIQUID_NETWORK: z.string().default("mainnet"),
-  HYPERLIQUID_MAX_LEVERAGE: z.string().default("20"),
+  SOLANA_Private_KEY: z.string(),
+  SOLANA_WALLET_ADDRESS: z.string(),
+  SOLANA_TESTNET: z.string().default("false"),
+  SOLANA_NETWORK: z.string().default("mainnet"),
+  SOLANA_MAX_LEVERAGE: z.string().default("20"),
   
   // Technical Indicators
   TAAPI_API_KEY: z.string().optional(),
   
-  // BSC
   BSC_RPC_URL: z.string().default("https://bsc-dataseed.binance.org"),
   BSC_PRIVATE_KEY: z.string(),
   

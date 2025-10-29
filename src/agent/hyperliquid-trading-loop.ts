@@ -4,12 +4,11 @@
  */
 
 import logger from '../utils/logger.js'
-import { HyperliquidAPI } from './hyperliquid-client.js'
+import { HyperliquidAPI } from './hyperliquid-api.js'
 import { IndicatorsClient } from './indicators-client.js'
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './hyperliquid-system-prompt.js'
 import { selectModel } from './router.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
-
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
   assets: string[]
