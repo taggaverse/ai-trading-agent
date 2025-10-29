@@ -87,7 +87,7 @@ export default function App() {
     <div className="app">
       <Header health={data.health} chains={data.chains} />
       <main className="main-content">
-        <StatsGrid stats={data.stats} portfolio={data.portfolio} />
+        <StatsGrid stats={data.stats} portfolio={data.portfolio} walletBalances={data.walletBalances} />
         <ChartsSection stats={data.stats} diary={data.diary} />
         <div className="grid-2">
           <DecisionLog diary={data.diary} />

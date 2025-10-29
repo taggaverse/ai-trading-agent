@@ -1,7 +1,11 @@
 import { ethers } from "ethers"
 import { Keypair, PublicKey, Connection } from "@solana/web3.js"
+import bs58 from "bs58"
 import config from "../config/index.js"
 import logger from "../utils/logger.js"
+
+// @ts-ignore - bs58 doesn't have types
+const bs58Lib = bs58
 
 export interface WalletInfo {
   chain: string
@@ -23,11 +27,43 @@ export class WalletManager {
   }
 
   // Get Solana address
-  static getSolanaAddress(privateKeyBase58: string): string {
+  static getSolanaAddress(privateKey: string): string {
     try {
-      const keypair = Keypair.fromSecretKey(
-        Buffer.from(privateKeyBase58, "base64")
-      )
+      let secretKey: Uint8Array
+      
+      logger.info(`Solana key type: ${typeof privateKey}, length: ${privateKey?.length || 0}`)
+      logger.info(`First 50 chars: ${privateKey?.substring(0, 50)}`)
+      
+      // Try parsing as JSON array first
+      try {
+        const arr = JSON.parse(privateKey)
+        logger.info(`Parsed as JSON array, length: ${arr.length}`)
+        if (Array.isArray(arr) && arr.length === 64) {
+          secretKey = new Uint8Array(arr)
+          logger.info("✓ Successfully parsed as JSON array")
+        } else {
+          throw new Error(`Not a valid 64-element array, got ${arr.length}`)
+        }
+      } catch (e: any) {
+        logger.info(`JSON parse failed: ${e.message}`)
+        // Try as Base58
+        try {
+          secretKey = bs58Lib.decode(privateKey)
+          logger.info("✓ Successfully parsed as Base58")
+        } catch (e2: any) {
+          logger.info(`Base58 parse failed: ${e2.message}`)
+          // Try as hex
+          if (privateKey.startsWith('0x')) {
+            secretKey = new Uint8Array(Buffer.from(privateKey.slice(2), 'hex'))
+            logger.info("✓ Successfully parsed as hex")
+          } else {
+            throw new Error("Could not parse Solana private key - not JSON, Base58, or hex")
+          }
+        }
+      }
+      
+      const keypair = Keypair.fromSecretKey(secretKey)
+      logger.info(`✓ Derived Solana address: ${keypair.publicKey.toString()}`)
       return keypair.publicKey.toString()
     } catch (error) {
       logger.error(`Failed to derive Solana address: ${error}`)
@@ -39,9 +75,16 @@ export class WalletManager {
   static getAllAddresses(): Record<string, string> {
     const addresses: Record<string, string> = {}
     
+    logger.info(`BASE_PRIVATE_KEY length: ${config.BASE_PRIVATE_KEY?.length || 0}`)
+    logger.info(`SOLANA_PRIVATE_KEY length: ${config.SOLANA_PRIVATE_KEY?.length || 0}`)
+    logger.info(`BSC_PRIVATE_KEY length: ${config.BSC_PRIVATE_KEY?.length || 0}`)
+    logger.info(`HYPERLIQUID_PRIVATE_KEY length: ${config.HYPERLIQUID_PRIVATE_KEY?.length || 0}`)
+    
     try {
-      if (config.BASE_PRIVATE_KEY && config.BASE_PRIVATE_KEY !== "") {
+      if (config.BASE_PRIVATE_KEY && config.BASE_PRIVATE_KEY !== "" && !config.BASE_PRIVATE_KEY.includes("...")) {
         addresses.base = this.getEthereumAddress(config.BASE_PRIVATE_KEY)
+      } else {
+        logger.warn("BASE_PRIVATE_KEY is empty or placeholder")
       }
     } catch (e) {
       logger.warn("Failed to derive Base address")

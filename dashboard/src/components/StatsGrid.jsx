@@ -1,13 +1,33 @@
 import React from 'react'
 import './StatsGrid.css'
 
-export default function StatsGrid({ stats, portfolio }) {
+export default function StatsGrid({ stats, portfolio, walletBalances }) {
   if (!stats || !portfolio) return null
 
-  // Calculate total balance from USDC across all chains
-  const totalBalance = Object.values(portfolio.balances || {}).reduce((sum, balance) => {
-    return sum + (typeof balance === 'number' ? balance : (balance.usdc || 0))
-  }, 0)
+  // Calculate total balance from real wallet balances (in SOL/ETH/BNB, converted to USD estimate)
+  // For now, use the portfolio balances as fallback
+  let totalBalance = 0
+  
+  if (walletBalances?.balances) {
+    // Sum up all gas token balances (rough USD estimate)
+    // SOL: ~$200/SOL, ETH: ~$3000/ETH, BNB: ~$600/BNB
+    const prices = {
+      solana: 200,
+      base: 3000,
+      bsc: 600,
+      hyperliquid: 1 // USDC is 1:1
+    }
+    
+    for (const [chain, info] of Object.entries(walletBalances.balances)) {
+      const price = prices[chain] || 1
+      totalBalance += (info.balance || 0) * price
+    }
+  } else {
+    // Fallback to portfolio balances
+    totalBalance = Object.values(portfolio.balances || {}).reduce((sum, balance) => {
+      return sum + (typeof balance === 'number' ? balance : (balance.usdc || 0))
+    }, 0)
+  }
   
   const usedMargin = Object.values(portfolio.positions || {}).reduce((sum, pos) => sum + (pos.margin || 0), 0)
   const winRate = stats.totalTrades > 0 ? ((stats.totalTrades - Math.abs(stats.totalProfit < 0 ? 1 : 0)) / stats.totalTrades * 100).toFixed(1) : 0
