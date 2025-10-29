@@ -72,13 +72,24 @@ app.get("/diary", (req, res) => {
 })
 
 // Portfolio endpoint
-app.get("/portfolio", (req, res) => {
-  res.json({
-    positions: tradingData.positions,
-    balances: tradingData.balances,
-    stats: tradingData.stats,
-    timestamp: new Date().toISOString(),
-  })
+app.get("/portfolio", async (req, res) => {
+  try {
+    const balances = await WalletManager.getAllBalances()
+    res.json({
+      positions: tradingData.positions,
+      balances: balances || tradingData.balances,
+      stats: tradingData.stats,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    logger.warn("Failed to fetch real balances, using cached:", error)
+    res.json({
+      positions: tradingData.positions,
+      balances: tradingData.balances,
+      stats: tradingData.stats,
+      timestamp: new Date().toISOString(),
+    })
+  }
 })
 
 // Chains endpoint
