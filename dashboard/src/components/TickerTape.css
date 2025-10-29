@@ -1,0 +1,142 @@
+.ticker-tape {
+  background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+  border: 1px solid #374151;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  height: 120px;
+}
+
+.ticker-header {
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.3);
+  border-bottom: 1px solid #374151;
+  font-size: 12px;
+  font-weight: 600;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ticker-scroll {
+  flex: 1;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.ticker-item {
+  display: grid;
+  grid-template-columns: 80px 120px 100px 80px;
+  gap: 12px;
+  padding: 8px 12px;
+  border-bottom: 1px solid #374151;
+  align-items: center;
+  font-size: 12px;
+  transition: background 0.2s;
+}
+
+.ticker-item:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.ticker-item:last-child {
+  border-bottom: none;
+}
+
+.ticker-asset {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.asset-icon {
+  font-size: 16px;
+  font-weight: 700;
+  color: #3b82f6;
+}
+
+.asset-name {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.ticker-price {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.price-label {
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.price-value {
+  font-weight: 700;
+  color: #e2e8f0;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.ticker-pnl {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.pnl-label {
+  font-size: 10px;
+  color: #9ca3af;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.pnl-value {
+  font-weight: 700;
+  font-family: 'Monaco', 'Courier New', monospace;
+}
+
+.ticker-pnl.positive .pnl-value {
+  color: #10b981;
+}
+
+.ticker-pnl.negative .pnl-value {
+  color: #ef4444;
+}
+
+.ticker-time {
+  font-size: 10px;
+  color: #9ca3af;
+  text-align: right;
+}
+
+.ticker-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #9ca3af;
+  font-size: 12px;
+}
+
+/* Scrollbar styling */
+.ticker-scroll::-webkit-scrollbar {
+  width: 4px;
+}
+
+.ticker-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ticker-scroll::-webkit-scrollbar-thumb {
+  background: #374151;
+  border-radius: 2px;
+}
+
+.ticker-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4b5563;
+}

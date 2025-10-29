@@ -66,19 +66,33 @@
   background: #2563eb;
 }
 
-.main-content {
-  max-width: 1600px;
-  margin: 0 auto;
-  padding: 24px;
+.app {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  min-height: 100vh;
+  background: #0f172a;
 }
 
-.grid-2 {
+.main-content {
+  flex: 1;
+  padding: 16px 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-wrapper {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
+  grid-template-columns: 1fr 320px;
+  gap: 16px;
+  height: 100%;
+}
+
+.left-section {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  overflow: hidden;
 }
 
 @media (max-width: 1200px) {

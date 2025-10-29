@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react'
 import axios from 'axios'
 import Header from './components/Header'
-import StatsGrid from './components/StatsGrid'
-import ChartsSection from './components/ChartsSection'
-import DecisionLog from './components/DecisionLog'
-import TradeHistory from './components/TradeHistory'
-import UnitEconomics from './components/UnitEconomics'
+import TopMetricsBar from './components/TopMetricsBar'
 import PnLChart from './components/PnLChart'
+import TickerTape from './components/TickerTape'
+import SidePanel from './components/SidePanel'
 import './App.css'
 
 export default function App() {
@@ -87,15 +85,15 @@ export default function App() {
   return (
     <div className="app">
       <Header health={data.health} chains={data.chains} />
+      <TopMetricsBar stats={data.stats} portfolio={data.portfolio} />
       <main className="main-content">
-        <StatsGrid stats={data.stats} portfolio={data.portfolio} walletBalances={data.walletBalances} />
-        <PnLChart diary={data.diary} portfolio={data.portfolio} stats={data.stats} />
-        <ChartsSection stats={data.stats} diary={data.diary} />
-        <div className="grid-2">
-          <DecisionLog diary={data.diary} />
-          <UnitEconomics stats={data.stats} />
+        <div className="content-wrapper">
+          <div className="left-section">
+            <PnLChart diary={data.diary} portfolio={data.portfolio} stats={data.stats} />
+            <TickerTape diary={data.diary} />
+          </div>
+          <SidePanel diary={data.diary} portfolio={data.portfolio} stats={data.stats} />
         </div>
-        <TradeHistory portfolio={data.portfolio} wallets={data.wallets} walletBalances={data.walletBalances} />
       </main>
     </div>
   )

@@ -93,12 +93,8 @@ export default function PnLChart({ diary, portfolio, stats }) {
 
     // Filter by timeframe
     let filteredDiary = diary || []
-    if (timeframe === '24h') {
-      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 24 * 60 * 60 * 1000)
-    } else if (timeframe === '7d') {
-      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 7 * 24 * 60 * 60 * 1000)
-    } else if (timeframe === '30d') {
-      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 30 * 24 * 60 * 60 * 1000)
+    if (timeframe === '72h') {
+      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 72 * 60 * 60 * 1000)
     }
 
     // Add initial point
@@ -173,17 +169,6 @@ export default function PnLChart({ diary, portfolio, stats }) {
   return (
     <div className="pnl-chart-container">
       <div className="pnl-header">
-        <div className="pnl-title-section">
-          <h3>Total Account Value</h3>
-          <div className="pnl-status">
-            {isProfitable ? (
-              <span className="status-badge profitable">BACK TO ALL</span>
-            ) : (
-              <span className="status-badge loss">IN LOSS</span>
-            )}
-          </div>
-        </div>
-
         <div className="pnl-timeframe">
           <button 
             className={`timeframe-btn ${timeframe === 'all' ? 'active' : ''}`}
@@ -192,50 +177,11 @@ export default function PnLChart({ diary, portfolio, stats }) {
             ALL
           </button>
           <button 
-            className={`timeframe-btn ${timeframe === '24h' ? 'active' : ''}`}
-            onClick={() => setTimeframe('24h')}
+            className={`timeframe-btn ${timeframe === '72h' ? 'active' : ''}`}
+            onClick={() => setTimeframe('72h')}
           >
-            24H
+            72H
           </button>
-          <button 
-            className={`timeframe-btn ${timeframe === '7d' ? 'active' : ''}`}
-            onClick={() => setTimeframe('7d')}
-          >
-            7D
-          </button>
-          <button 
-            className={`timeframe-btn ${timeframe === '30d' ? 'active' : ''}`}
-            onClick={() => setTimeframe('30d')}
-          >
-            30D
-          </button>
-        </div>
-      </div>
-
-      <div className="pnl-stats">
-        <div className="stat-item">
-          <span className="stat-label">Current Value</span>
-          <span className="stat-value">${currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">P&L</span>
-          <span className={`stat-value ${isProfitable ? 'positive' : 'negative'}`}>
-            {isProfitable ? '+' : ''}{(currentValue - initialBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-          </span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">Return</span>
-          <span className={`stat-value ${isProfitable ? 'positive' : 'negative'}`}>
-            {isProfitable ? '+' : ''}{pnlPercent}%
-          </span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">High</span>
-          <span className="stat-value">${highestValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-        <div className="stat-item">
-          <span className="stat-label">Low</span>
-          <span className="stat-value">${lowestValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -279,20 +225,6 @@ export default function PnLChart({ diary, portfolio, stats }) {
         )}
       </div>
 
-      <div className="pnl-footer">
-        <div className="footer-item">
-          <span className="footer-label">Initial Balance</span>
-          <span className="footer-value">${initialBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-        </div>
-        <div className="footer-item">
-          <span className="footer-label">Total Trades</span>
-          <span className="footer-value">{stats?.totalTrades || 0}</span>
-        </div>
-        <div className="footer-item">
-          <span className="footer-label">Data Points</span>
-          <span className="footer-value">{chartData.length}</span>
-        </div>
-      </div>
     </div>
   )
 }
