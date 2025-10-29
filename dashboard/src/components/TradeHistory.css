@@ -1,0 +1,130 @@
+.trade-history {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+}
+
+.history-section {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+}
+
+.history-section h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+}
+
+.positions-table,
+.balances-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.table-header {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  background: rgba(15, 23, 42, 0.6);
+  padding: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+  font-weight: 600;
+  font-size: 12px;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.balances-table .table-header {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.table-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0;
+  padding: 12px;
+  border-bottom: 1px solid rgba(148, 163, 184, 0.05);
+  font-size: 13px;
+  align-items: center;
+  transition: background 0.2s;
+}
+
+.table-row:hover {
+  background: rgba(59, 130, 246, 0.05);
+}
+
+.balances-table .table-row {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.symbol {
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.pnl {
+  font-weight: 600;
+}
+
+.pnl.positive {
+  color: #22c55e;
+}
+
+.pnl.negative {
+  color: #ef4444;
+}
+
+.chain-badge {
+  background: rgba(59, 130, 246, 0.1);
+  border: 1px solid rgba(59, 130, 246, 0.3);
+  color: #60a5fa;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  text-align: center;
+  width: fit-content;
+}
+
+.empty-state {
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+  padding: 20px;
+}
+
+@media (max-width: 1200px) {
+  .trade-history {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 768px) {
+  .table-header,
+  .table-row {
+    grid-template-columns: 1fr !important;
+    gap: 8px;
+  }
+
+  .table-header {
+    display: none;
+  }
+
+  .table-row {
+    background: rgba(15, 23, 42, 0.4);
+    border: 1px solid rgba(148, 163, 184, 0.1);
+    border-radius: 8px;
+    margin-bottom: 8px;
+    padding: 12px;
+  }
+}

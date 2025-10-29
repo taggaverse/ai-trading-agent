@@ -1,0 +1,81 @@
+.decision-log {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.6) 0%, rgba(15, 23, 42, 0.6) 100%);
+  border: 1px solid rgba(148, 163, 184, 0.1);
+  border-radius: 12px;
+  padding: 20px;
+  backdrop-filter: blur(10px);
+  height: fit-content;
+}
+
+.decision-log h3 {
+  font-size: 16px;
+  font-weight: 600;
+  margin-bottom: 16px;
+  color: #e2e8f0;
+}
+
+.decisions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.decision-item {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background: rgba(15, 23, 42, 0.4);
+  border-radius: 8px;
+  border-left: 3px solid #3b82f6;
+  transition: background 0.2s;
+}
+
+.decision-item:hover {
+  background: rgba(15, 23, 42, 0.6);
+}
+
+.decision-time {
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 600;
+  white-space: nowrap;
+  min-width: 70px;
+}
+
+.decision-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.decision-symbol {
+  font-weight: 600;
+  color: #e2e8f0;
+  font-size: 13px;
+}
+
+.decision-confidence {
+  font-size: 11px;
+  color: #94a3b8;
+}
+
+.decision-action {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  background: rgba(59, 130, 246, 0.1);
+  border-left: 3px solid #3b82f6;
+  border-radius: 4px;
+  color: #60a5fa;
+  white-space: nowrap;
+}
+
+.empty-state {
+  text-align: center;
+  color: #64748b;
+  font-size: 13px;
+  padding: 20px;
+}
