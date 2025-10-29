@@ -72,15 +72,33 @@ export const baseContext = context({
 
 // Uniswap V4 client
 export class UniswapV4Client {
-  private provider: ethers.Provider
-  private signer: ethers.Signer
+  private provider: ethers.Provider | null = null
+  private signer: ethers.Signer | null = null
+  private rpcUrl: string
+  private privateKey: string
   private routerAddress: string
   private chainId: number = 8453 // Base mainnet
 
   constructor(rpcUrl: string, privateKey: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl)
-    this.signer = new ethers.Wallet(privateKey, this.provider)
+    this.rpcUrl = rpcUrl
+    this.privateKey = privateKey
     this.routerAddress = "0x2626664c2603336E57B271c5C0b26F421741e481" // Uniswap V4 Router on Base
+  }
+
+  // Lazy-load provider only when needed
+  private getProvider(): ethers.Provider {
+    if (!this.provider) {
+      this.provider = new ethers.JsonRpcProvider(this.rpcUrl)
+    }
+    return this.provider
+  }
+
+  // Lazy-load signer only when needed
+  private getSigner(): ethers.Signer {
+    if (!this.signer) {
+      this.signer = new ethers.Wallet(this.privateKey, this.getProvider())
+    }
+    return this.signer
   }
 
   async getQuote(
@@ -150,11 +168,13 @@ export class UniswapV4Client {
 
   async getBalance(tokenAddress: string): Promise<BaseBalance | null> {
     try {
-      const walletAddress = await this.signer.getAddress()
+      const signer = this.getSigner()
+      const provider = this.getProvider()
+      const walletAddress = await signer.getAddress()
 
       // For ETH
       if (tokenAddress.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
-        const balance = await this.provider.getBalance(walletAddress)
+        const balance = await provider.getBalance(walletAddress)
         const ethBalance = ethers.formatEther(balance)
 
         return {
@@ -173,7 +193,7 @@ export class UniswapV4Client {
         "function symbol() view returns (string)",
       ]
 
-      const contract = new ethers.Contract(tokenAddress, erc20Abi, this.provider)
+      const contract = new ethers.Contract(tokenAddress, erc20Abi, provider)
       const balance = await contract.balanceOf(walletAddress)
       const decimals = await contract.decimals()
       const symbol = await contract.symbol()
@@ -196,8 +216,10 @@ export class UniswapV4Client {
 
   async getEthBalance(): Promise<number> {
     try {
-      const walletAddress = await this.signer.getAddress()
-      const balance = await this.provider.getBalance(walletAddress)
+      const signer = this.getSigner()
+      const provider = this.getProvider()
+      const walletAddress = await signer.getAddress()
+      const balance = await provider.getBalance(walletAddress)
       return parseFloat(ethers.formatEther(balance))
     } catch (error) {
       logger.error("Failed to get ETH balance:", error)
@@ -205,8 +227,9 @@ export class UniswapV4Client {
     }
   }
 
-  getWalletAddress(): string {
-    return this.signer.getAddress() as any
+  async getWalletAddress(): Promise<string> {
+    const signer = this.getSigner()
+    return await signer.getAddress()
   }
 }
 

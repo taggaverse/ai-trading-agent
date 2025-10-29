@@ -75,12 +75,30 @@ export const solanaContext = context({
 // Jupiter API client
 export class JupiterClient {
   private baseUrl = "https://quote-api.jup.ag/v6"
-  private connection: Connection
-  private keypair: Keypair
+  private connection: Connection | null = null
+  private keypair: Keypair | null = null
+  private rpcUrl: string
+  private privateKey: string
 
   constructor(rpcUrl: string, privateKey: string) {
-    this.connection = new Connection(rpcUrl, "confirmed")
-    this.keypair = Keypair.fromSecretKey(Buffer.from(privateKey, "base64"))
+    this.rpcUrl = rpcUrl
+    this.privateKey = privateKey
+  }
+
+  // Lazy-load connection only when needed
+  private getConnection(): Connection {
+    if (!this.connection) {
+      this.connection = new Connection(this.rpcUrl, "confirmed")
+    }
+    return this.connection
+  }
+
+  // Lazy-load keypair only when needed
+  private getKeypair(): Keypair {
+    if (!this.keypair) {
+      this.keypair = Keypair.fromSecretKey(Buffer.from(this.privateKey, "base64"))
+    }
+    return this.keypair
   }
 
   async getQuote(
@@ -166,9 +184,11 @@ export class JupiterClient {
 
   async getBalance(token: string): Promise<SolanaBalance | null> {
     try {
+      const connection = this.getConnection()
+      const keypair = this.getKeypair()
       const tokenPublicKey = new PublicKey(token)
-      const accounts = await this.connection.getTokenAccountsByOwner(
-        this.keypair.publicKey,
+      const accounts = await connection.getTokenAccountsByOwner(
+        keypair.publicKey,
         { mint: tokenPublicKey }
       )
 
@@ -177,7 +197,7 @@ export class JupiterClient {
       }
 
       const account = accounts.value[0]
-      const balance = await this.connection.getTokenAccountBalance(account.pubkey)
+      const balance = await connection.getTokenAccountBalance(account.pubkey)
 
       return {
         token,
@@ -193,7 +213,9 @@ export class JupiterClient {
 
   async getSolBalance(): Promise<number> {
     try {
-      const balance = await this.connection.getBalance(this.keypair.publicKey)
+      const connection = this.getConnection()
+      const keypair = this.getKeypair()
+      const balance = await connection.getBalance(keypair.publicKey)
       return balance / 1e9 // Convert lamports to SOL
     } catch (error) {
       logger.error("Failed to get SOL balance:", error)
@@ -202,7 +224,8 @@ export class JupiterClient {
   }
 
   getWalletAddress(): string {
-    return this.keypair.publicKey.toString()
+    const keypair = this.getKeypair()
+    return keypair.publicKey.toString()
   }
 }
 

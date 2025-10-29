@@ -72,15 +72,33 @@ export const bscContext = context({
 
 // PancakeSwap client
 export class PancakeSwapClient {
-  private provider: ethers.Provider
-  private signer: ethers.Signer
+  private provider: ethers.Provider | null = null
+  private signer: ethers.Signer | null = null
+  private rpcUrl: string
+  private privateKey: string
   private routerAddress: string
   private chainId: number = 56 // BSC mainnet
 
   constructor(rpcUrl: string, privateKey: string) {
-    this.provider = new ethers.JsonRpcProvider(rpcUrl)
-    this.signer = new ethers.Wallet(privateKey, this.provider)
+    this.rpcUrl = rpcUrl
+    this.privateKey = privateKey
     this.routerAddress = "0x10ED43C718714eb63d5aA57B78f985283Ed541b8" // PancakeSwap Router V2
+  }
+
+  // Lazy-load provider only when needed
+  private getProvider(): ethers.Provider {
+    if (!this.provider) {
+      this.provider = new ethers.JsonRpcProvider(this.rpcUrl)
+    }
+    return this.provider
+  }
+
+  // Lazy-load signer only when needed
+  private getSigner(): ethers.Signer {
+    if (!this.signer) {
+      this.signer = new ethers.Wallet(this.privateKey, this.getProvider())
+    }
+    return this.signer
   }
 
   async getQuote(
@@ -150,11 +168,13 @@ export class PancakeSwapClient {
 
   async getBalance(tokenAddress: string): Promise<BSCBalance | null> {
     try {
-      const walletAddress = await this.signer.getAddress()
+      const signer = this.getSigner()
+      const provider = this.getProvider()
+      const walletAddress = await signer.getAddress()
 
       // For BNB
       if (tokenAddress.toLowerCase() === "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee") {
-        const balance = await this.provider.getBalance(walletAddress)
+        const balance = await provider.getBalance(walletAddress)
         const bnbBalance = ethers.formatEther(balance)
 
         return {
@@ -173,7 +193,7 @@ export class PancakeSwapClient {
         "function symbol() view returns (string)",
       ]
 
-      const contract = new ethers.Contract(tokenAddress, bep20Abi, this.provider)
+      const contract = new ethers.Contract(tokenAddress, bep20Abi, provider)
       const balance = await contract.balanceOf(walletAddress)
       const decimals = await contract.decimals()
       const symbol = await contract.symbol()
@@ -196,8 +216,10 @@ export class PancakeSwapClient {
 
   async getBnbBalance(): Promise<number> {
     try {
-      const walletAddress = await this.signer.getAddress()
-      const balance = await this.provider.getBalance(walletAddress)
+      const signer = this.getSigner()
+      const provider = this.getProvider()
+      const walletAddress = await signer.getAddress()
+      const balance = await provider.getBalance(walletAddress)
       return parseFloat(ethers.formatEther(balance))
     } catch (error) {
       logger.error("Failed to get BNB balance:", error)
@@ -205,8 +227,9 @@ export class PancakeSwapClient {
     }
   }
 
-  getWalletAddress(): string {
-    return this.signer.getAddress() as any
+  async getWalletAddress(): Promise<string> {
+    const signer = this.getSigner()
+    return await signer.getAddress()
   }
 }
 
