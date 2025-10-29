@@ -1,7 +1,8 @@
-import { context, action } from "../../types/daydreams.js"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 import { assetTradingContext } from "./asset-trading.js"
+import { technicalContext } from "./technical.js"
 
 // Types
 export interface Position {
@@ -54,7 +55,7 @@ export interface PortfolioContextState {
   lastUpdate: number
 }
 
-// Create portfolio context
+// Create portfolio context with Hyperliquid composition
 export const portfolioContext = context({
   type: "portfolio-trading",
   schema: portfolioContextSchema,
@@ -74,6 +75,24 @@ export const portfolioContext = context({
     }
   },
 })
+  .use((state: any) => {
+    // Compose asset trading contexts for each asset
+    const assets = state.args.assets || ['BTC', 'ETH']
+    const assetContexts = assets.map((asset: string) => ({
+      context: assetTradingContext,
+      args: { asset, timeframe: '5m' }
+    }))
+
+    // Add technical context for all assets
+    const technicalCtx = {
+      context: technicalContext,
+      args: { assets }
+    }
+
+    logger.info(`Composing portfolio with assets: ${assets.join(', ')}`)
+
+    return [...assetContexts, technicalCtx]
+  })
 
 // Helper functions
 export function addPosition(

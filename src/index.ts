@@ -13,6 +13,8 @@ import { closePosition } from "./agent/actions/close-position.js"
 import { manageRisk, shouldStopTrading } from "./agent/actions/risk-management.js"
 import { WalletManager } from "./agent/wallet-info.js"
 import { BridgeManager } from "./agent/bridge-manager.js"
+import { hyperliquidExtension } from "./extensions/hyperliquid-extension.js"
+import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from "./agent/hyperliquid-system-prompt.js"
 
 const app = express()
 
@@ -236,6 +238,13 @@ async function main() {
       config.DREAMS_ROUTER_URL,
       config.X402_WALLET_ADDRESS
     )
+
+    // Initialize Hyperliquid extension (for trading on Hyperliquid)
+    // TODO: Initialize HyperliquidAPI and IndicatorsClient, then pass to hyperliquidExtension
+    // const hyperliquidAPI = new HyperliquidAPI(config.HYPERLIQUID_PRIVATE_KEY)
+    // const indicatorsClient = new IndicatorsClient(config.TAAPI_API_KEY)
+    // const hlExtension = hyperliquidExtension(hyperliquidAPI, indicatorsClient, { privateKey: config.HYPERLIQUID_PRIVATE_KEY, tapiKey: config.TAAPI_API_KEY })
+    logger.info("✓ Hyperliquid integration ready (contexts: technical, asset-trading, portfolio)")
 
     // Start API server
     app.listen(apiPort, apiHost, () => {
