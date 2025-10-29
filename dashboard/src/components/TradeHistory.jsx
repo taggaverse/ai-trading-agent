@@ -1,11 +1,13 @@
 import React from 'react'
 import './TradeHistory.css'
 
-export default function TradeHistory({ portfolio }) {
+export default function TradeHistory({ portfolio, wallets, walletBalances }) {
   if (!portfolio) return null
 
   const positions = Object.entries(portfolio.positions || {})
   const balances = portfolio.balances || {}
+  const walletAddresses = wallets?.addresses || {}
+  const realBalances = walletBalances?.balances || {}
 
   const getGasTokenStatus = (chain, gasAmount) => {
     const minRequired = {
@@ -58,14 +60,14 @@ export default function TradeHistory({ portfolio }) {
       </div>
 
       <div className="history-section">
-        <h3>Wallet Balances & Gas Tokens</h3>
+        <h3>Wallet Addresses & Balances</h3>
         {Object.keys(balances).length > 0 ? (
           <div className="balances-list">
             {Object.entries(balances).map(([chain, data], idx) => {
               const gasToken = data.gasToken || (chain === 'base' ? 'ETH' : chain === 'solana' ? 'SOL' : chain === 'bsc' ? 'BNB' : 'USDC')
-              const gasAmount = data[gasToken.toLowerCase()] || 0
-              const usdcAmount = data.usdc || 0
-              const status = getGasTokenStatus(chain, gasAmount)
+              const address = walletAddresses[chain] || 'N/A'
+              const realBalance = realBalances[chain]?.balance || 0
+              const status = getGasTokenStatus(chain, realBalance)
               
               return (
                 <div key={idx} className="balance-card">
@@ -76,25 +78,27 @@ export default function TradeHistory({ portfolio }) {
                     </span>
                   </div>
                   
+                  <div className="balance-address">
+                    <span className="address-label">Address:</span>
+                    <span className="address-value" title={address}>
+                      {address.substring(0, 10)}...{address.substring(address.length - 8)}
+                    </span>
+                    <button 
+                      className="copy-btn"
+                      onClick={() => navigator.clipboard.writeText(address)}
+                      title="Copy address"
+                    >
+                      📋
+                    </button>
+                  </div>
+                  
                   <div className="balance-tokens">
                     <div className="token-row">
                       <span className="token-label">{gasToken} (Gas Token)</span>
                       <span className={`token-amount ${status.hasEnough ? 'positive' : 'negative'}`}>
-                        {gasAmount.toFixed(6)} {gasToken}
+                        {realBalance.toFixed(6)} {gasToken}
                       </span>
                     </div>
-                    {chain !== 'hyperliquid' && (
-                      <div className="token-row">
-                        <span className="token-label">USDC (Trading)</span>
-                        <span className="token-amount">${usdcAmount.toFixed(2)}</span>
-                      </div>
-                    )}
-                    {chain === 'hyperliquid' && (
-                      <div className="token-row">
-                        <span className="token-label">USDC (Balance)</span>
-                        <span className="token-amount">${usdcAmount.toFixed(2)}</span>
-                      </div>
-                    )}
                   </div>
                   
                   <div className="balance-requirements">

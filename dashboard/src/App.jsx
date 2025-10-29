@@ -14,7 +14,9 @@ export default function App() {
     stats: null,
     portfolio: null,
     diary: null,
-    chains: []
+    chains: [],
+    wallets: null,
+    walletBalances: null
   })
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -24,11 +26,13 @@ export default function App() {
       const baseURL = 'http://localhost:3000'
       console.log('Fetching data from:', baseURL)
       
-      const [health, stats, portfolio, diary] = await Promise.all([
+      const [health, stats, portfolio, diary, wallets, walletBalances] = await Promise.all([
         axios.get(`${baseURL}/health`).catch(e => { console.error('health error:', e); throw e }),
         axios.get(`${baseURL}/stats`).catch(e => { console.error('stats error:', e); throw e }),
         axios.get(`${baseURL}/portfolio`).catch(e => { console.error('portfolio error:', e); throw e }),
-        axios.get(`${baseURL}/diary`).catch(e => { console.error('diary error:', e); throw e })
+        axios.get(`${baseURL}/diary`).catch(e => { console.error('diary error:', e); throw e }),
+        axios.get(`${baseURL}/wallets`).catch(e => { console.warn('wallets error:', e); return { data: { addresses: {} } } }),
+        axios.get(`${baseURL}/wallets/balances`).catch(e => { console.warn('wallets/balances error:', e); return { data: { balances: {} } } })
       ])
 
       console.log('Data fetched successfully:', { health: health.data, stats: stats.data })
@@ -38,7 +42,9 @@ export default function App() {
         stats: stats.data,
         portfolio: portfolio.data,
         diary: diary.data,
-        chains: health.data.chains || []
+        chains: health.data.chains || [],
+        wallets: wallets.data,
+        walletBalances: walletBalances.data
       })
       setError(null)
       setLoading(false)
@@ -87,7 +93,7 @@ export default function App() {
           <DecisionLog diary={data.diary} />
           <UnitEconomics stats={data.stats} />
         </div>
-        <TradeHistory portfolio={data.portfolio} />
+        <TradeHistory portfolio={data.portfolio} wallets={data.wallets} walletBalances={data.walletBalances} />
       </main>
     </div>
   )

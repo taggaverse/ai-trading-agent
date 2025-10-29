@@ -11,6 +11,7 @@ import { riskContext, updateRiskState, checkRiskLimits } from "./agent/contexts/
 import { executeTrade } from "./agent/actions/execute-trade.js"
 import { closePosition } from "./agent/actions/close-position.js"
 import { manageRisk, shouldStopTrading } from "./agent/actions/risk-management.js"
+import { WalletManager } from "./agent/wallet-info.js"
 
 const app = express()
 
@@ -81,6 +82,31 @@ app.get("/chains", (req, res) => {
     primary: config.PRIMARY_CHAIN,
     timestamp: new Date().toISOString(),
   })
+})
+
+// Wallet addresses endpoint
+app.get("/wallets", (req, res) => {
+  const addresses = WalletManager.getAllAddresses()
+  res.json({
+    addresses,
+    timestamp: new Date().toISOString(),
+  })
+})
+
+// Wallet balances endpoint
+app.get("/wallets/balances", async (req, res) => {
+  try {
+    const balances = await WalletManager.getAllBalances()
+    res.json({
+      balances,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error) {
+    res.status(500).json({
+      error: "Failed to fetch wallet balances",
+      timestamp: new Date().toISOString(),
+    })
+  }
 })
 
 // Stats endpoint
