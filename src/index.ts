@@ -66,10 +66,18 @@ app.get("/health", (req, res) => {
   })
 })
 
+// Store reference to trading loop for diary endpoint
+let tradingLoopRef: any = null
+
 // Diary endpoint (recent trading decisions)
 app.get("/diary", (req, res) => {
   const limit = parseInt(req.query.limit as string) || 200
-  res.json(tradingData.decisions.slice(-limit))
+  if (tradingLoopRef) {
+    const state = tradingLoopRef.getState()
+    res.json(state.decisions.slice(-limit))
+  } else {
+    res.json(tradingData.decisions.slice(-limit))
+  }
 })
 
 // Portfolio endpoint
@@ -305,6 +313,9 @@ async function main() {
       maxPositionSize: maxPositionSize,
       maxLeverage: maxLeverage
     }, dreamsRouter, paymentManager)
+    
+    // Store reference for diary endpoint
+    tradingLoopRef = tradingLoop
 
     // Add payment stats endpoint
     app.get("/payments", (req, res) => {
