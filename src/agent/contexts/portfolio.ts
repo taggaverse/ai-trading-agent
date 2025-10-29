@@ -1,6 +1,7 @@
-import { context } from "../../types/daydreams.js"
+import { context, action } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
+import { assetTradingContext } from "./asset-trading.js"
 
 // Types
 export interface Position {
