@@ -79,7 +79,11 @@ const configSchema = z.object({
   // Hyperliquid
   HYPERLIQUID_PRIVATE_KEY: z.string(),
   HYPERLIQUID_TESTNET: z.string().default("false"),
+  HYPERLIQUID_NETWORK: z.string().default("mainnet"),
   HYPERLIQUID_MAX_LEVERAGE: z.string().default("20"),
+  
+  // Technical Indicators
+  TAAPI_API_KEY: z.string().optional(),
   
   // BSC
   BSC_RPC_URL: z.string().default("https://bsc-dataseed.binance.org"),

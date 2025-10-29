@@ -15,6 +15,8 @@ import { WalletManager } from "./agent/wallet-info.js"
 import { BridgeManager } from "./agent/bridge-manager.js"
 import { hyperliquidExtension } from "./extensions/hyperliquid-extension.js"
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from "./agent/hyperliquid-system-prompt.js"
+import { HyperliquidAPI } from "./agent/hyperliquid-client.js"
+import { IndicatorsClient } from "./agent/indicators-client.js"
 
 const app = express()
 
@@ -239,12 +241,24 @@ async function main() {
       config.X402_WALLET_ADDRESS
     )
 
-    // Initialize Hyperliquid extension (for trading on Hyperliquid)
-    // TODO: Initialize HyperliquidAPI and IndicatorsClient, then pass to hyperliquidExtension
-    // const hyperliquidAPI = new HyperliquidAPI(config.HYPERLIQUID_PRIVATE_KEY)
-    // const indicatorsClient = new IndicatorsClient(config.TAAPI_API_KEY)
-    // const hlExtension = hyperliquidExtension(hyperliquidAPI, indicatorsClient, { privateKey: config.HYPERLIQUID_PRIVATE_KEY, tapiKey: config.TAAPI_API_KEY })
-    logger.info("✓ Hyperliquid integration ready (contexts: technical, asset-trading, portfolio)")
+    // Initialize Hyperliquid API clients
+    logger.info("Initializing Hyperliquid API clients...")
+    const hyperliquidAPI = new HyperliquidAPI(
+      config.HYPERLIQUID_PRIVATE_KEY,
+      (config.HYPERLIQUID_NETWORK as 'mainnet' | 'testnet') || 'mainnet'
+    )
+    logger.info("✓ HyperliquidAPI initialized")
+
+    const indicatorsClient = new IndicatorsClient(config.TAAPI_API_KEY || 'mock-key')
+    logger.info("✓ IndicatorsClient initialized")
+
+    // Initialize Hyperliquid extension
+    const hlExtension = hyperliquidExtension(hyperliquidAPI, indicatorsClient, {
+      privateKey: config.HYPERLIQUID_PRIVATE_KEY,
+      tapiKey: config.TAAPI_API_KEY || 'mock-key',
+      network: (config.HYPERLIQUID_NETWORK as 'mainnet' | 'testnet') || 'mainnet'
+    })
+    logger.info("✓ Hyperliquid extension initialized")
 
     // Start API server
     app.listen(apiPort, apiHost, () => {
