@@ -9,13 +9,52 @@ export default function PnLChart({ diary, portfolio, stats }) {
   const [pnlPercent, setPnlPercent] = useState(0)
   const [highestValue, setHighestValue] = useState(10000)
   const [lowestValue, setLowestValue] = useState(10000)
+  const [initialBalance, setInitialBalance] = useState(10000)
+
+  useEffect(() => {
+    // Get actual balance from portfolio
+    let actualBalance = 10000
+    
+    if (portfolio && portfolio.balances) {
+      // Sum up all balances across chains
+      let totalBalance = 0
+      
+      // Hyperliquid USDC
+      if (portfolio.balances.hyperliquid?.usdc) {
+        totalBalance += portfolio.balances.hyperliquid.usdc
+      }
+      
+      // Base ETH (convert to USDC equivalent - approximate)
+      if (portfolio.balances.base?.eth) {
+        totalBalance += portfolio.balances.base.eth * 2500 // Approximate ETH price
+      }
+      
+      // Solana SOL (convert to USDC equivalent - approximate)
+      if (portfolio.balances.solana?.sol) {
+        totalBalance += portfolio.balances.solana.sol * 100 // Approximate SOL price
+      }
+      
+      // BSC BNB (convert to USDC equivalent - approximate)
+      if (portfolio.balances.bsc?.bnb) {
+        totalBalance += portfolio.balances.bsc.bnb * 600 // Approximate BNB price
+      }
+      
+      if (totalBalance > 0) {
+        actualBalance = totalBalance
+      }
+    }
+    
+    setCurrentValue(actualBalance)
+    
+    // Calculate P&L
+    const pnl = actualBalance - initialBalance
+    const pnlPercentage = Math.round((pnl / initialBalance) * 10000) / 100
+    setPnlPercent(pnlPercentage)
+  }, [portfolio, initialBalance])
 
   useEffect(() => {
     if (!diary || !diary.length) return
 
-    // Generate PnL history from diary entries
-    const initialBalance = 10000
-    let runningBalance = initialBalance
     const data = []
     const now = Date.now()
 
@@ -45,10 +84,9 @@ export default function PnLChart({ diary, portfolio, stats }) {
     filteredDiary.forEach((entry, idx) => {
       const timestamp = new Date(entry.timestamp)
       
-      // Simulate PnL changes (in real scenario, this would come from actual trades)
-      // For now, we'll create realistic looking data based on entry count
+      // Simulate PnL changes based on entry count
       const randomWalk = Math.sin(idx * 0.5) * 500 + Math.cos(idx * 0.3) * 300
-      runningBalance = initialBalance + (stats?.totalPnL || 0) + randomWalk
+      const runningBalance = initialBalance + (stats?.totalPnL || 0) + randomWalk
       
       maxValue = Math.max(maxValue, runningBalance)
       minValue = Math.min(minValue, runningBalance)
@@ -62,25 +100,22 @@ export default function PnLChart({ diary, portfolio, stats }) {
       })
     })
 
-    // Add current value
-    const currentBalance = initialBalance + (stats?.totalPnL || 0)
+    // Add current value (use actual balance from portfolio)
     data.push({
       timestamp: new Date().toLocaleString(),
-      value: Math.round(currentBalance * 100) / 100,
-      pnl: Math.round((currentBalance - initialBalance) * 100) / 100,
-      pnlPercent: Math.round(((currentBalance - initialBalance) / initialBalance) * 10000) / 100,
+      value: Math.round(currentValue * 100) / 100,
+      pnl: Math.round((currentValue - initialBalance) * 100) / 100,
+      pnlPercent: Math.round(((currentValue - initialBalance) / initialBalance) * 10000) / 100,
       time: Date.now()
     })
 
-    maxValue = Math.max(maxValue, currentBalance)
-    minValue = Math.min(minValue, currentBalance)
+    maxValue = Math.max(maxValue, currentValue)
+    minValue = Math.min(minValue, currentValue)
 
     setChartData(data)
-    setCurrentValue(currentBalance)
-    setPnlPercent(Math.round(((currentBalance - initialBalance) / initialBalance) * 10000) / 100)
     setHighestValue(maxValue)
     setLowestValue(minValue)
-  }, [diary, stats, timeframe])
+  }, [diary, stats, timeframe, currentValue, initialBalance])
 
   const isProfitable = pnlPercent >= 0
 
