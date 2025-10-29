@@ -1,3 +1,11 @@
+# Hyperliquid + Daydreams Integration Summary
+
+## 🎯 Final Recommendation: NO REBUILD NEEDED
+
+After thoroughly studying both Nocturne (proven Hyperliquid agent) and Daydreams framework, I recommend **integrating Hyperliquid within Daydreams' existing architecture** using composable contexts. This is actually BETTER than Nocturne's approach.
+
+---
+
 # Daydream + x402 Integration Summary
 
 ## Quick Reference
@@ -248,3 +256,201 @@ npm run build
 - [x402 Integration Guide](https://x402.dev/docs)
 - [Our Architecture](./ARCHITECTURE.md)
 - [Our Project Map](./PROJECT_MAP.md)
+
+---
+
+## 🚀 Hyperliquid Integration Strategy (NEW)
+
+### Why Daydreams is Perfect for Trading
+
+Daydreams' composable context architecture is IDEAL for trading agents:
+
+```
+Portfolio Context (Composed)
+├─ Asset Context (BTC)
+│  ├─ Technical Context (Indicators)
+│  └─ Actions (place-order, close-position)
+├─ Asset Context (ETH)
+│  ├─ Technical Context (Indicators)
+│  └─ Actions (place-order, close-position)
+└─ Risk Context (Position limits, leverage)
+```
+
+Each context has isolated memory:
+- **Working Memory**: Current decision analysis
+- **Context Memory**: Position history, trades, exit plans
+
+### Key Integration Points
+
+#### 1. Technical Context (Indicators)
+```typescript
+const technicalContext = context({
+  type: 'technical',
+  create: () => ({ indicators: {}, fundingRates: {} }),
+  actions: [
+    action({ name: 'fetch-indicators', ... }),
+    action({ name: 'get-funding-rate', ... })
+  ]
+})
+```
+
+#### 2. Asset Trading Context (Positions)
+```typescript
+const assetTradingContext = context({
+  type: 'asset-trading',
+  create: () => ({ position: null, trades: [], exitPlan: null }),
+  use: (state) => [{ context: technicalContext, args: { asset: state.args.asset } }],
+  actions: [
+    action({ name: 'place-order', ... }),
+    action({ name: 'close-position', ... }),
+    action({ name: 'set-exit-plan', ... })
+  ]
+})
+```
+
+#### 3. Portfolio Context (Composition)
+```typescript
+const portfolioContext = context({
+  type: 'portfolio',
+  create: () => ({ totalBalance: 0, totalPnL: 0 }),
+  use: (state) => 
+    state.args.assets.map(asset => ({
+      context: assetTradingContext,
+      args: { asset }
+    }))
+})
+```
+
+#### 4. Hyperliquid Extension
+```typescript
+export function hyperliquidExtension(config) {
+  return {
+    name: 'hyperliquid',
+    hyperliquid: new HyperliquidAPI(config.privateKey),
+    indicators: new IndicatorsClient(config.tapiKey)
+  }
+}
+```
+
+### System Prompt with Trading Discipline
+
+```
+You are a rigorous QUANTITATIVE TRADER on Hyperliquid.
+
+CORE POLICY:
+1) Respect prior plans: Don't close early unless invalidation occurs
+2) Hysteresis: Require stronger evidence to CHANGE than to KEEP
+3) Cooldown: Respect cooldown_until timestamps in exit plans
+4) Funding is a tilt, not a trigger (only if > 0.25% per 8h)
+5) Overbought/oversold ≠ reversal by itself
+6) Prefer adjustments over exits
+
+You have access to:
+- Portfolio context: Overall account state
+- Asset contexts: Individual positions with memory
+- Technical context: Indicators and funding rates
+- Actions: place-order, close-position, set-exit-plan, fetch-indicators
+
+Make decisive decisions that minimize churn while capturing edge.
+```
+
+### Implementation Roadmap
+
+**Week 1: Foundation** (1-2 days)
+- [ ] Create technical context with indicator actions
+- [ ] Create asset trading context with order actions
+- [ ] Create portfolio context with composition
+- [ ] Create hyperliquid extension
+
+**Week 2: Integration** (1 day)
+- [ ] Update system prompt with trading rules
+- [ ] Update main agent to use portfolio context
+- [ ] Add event logging for trades
+
+**Week 3: Testing** (2-3 days)
+- [ ] Test on Hyperliquid testnet
+- [ ] Validate context composition
+- [ ] Monitor for edge cases
+
+**Week 4: Production** (1 day)
+- [ ] Deploy to mainnet
+- [ ] Monitor live trading
+
+### Files to Create/Modify
+
+**New Files:**
+- `src/extensions/hyperliquid-extension.ts`
+- `src/agent/contexts/technical.ts`
+- `src/agent/contexts/asset-trading.ts`
+- `src/agent/contexts/portfolio.ts`
+
+**Modified Files:**
+- `src/index.ts` - Add portfolio context
+- `src/agent/system-prompt.ts` - Update with trading rules
+
+**Total new code: ~400 lines**
+**Total modified code: ~50 lines**
+
+### Why This Approach is Better Than Nocturne
+
+| Aspect | Nocturne | Our Daydreams Approach |
+|--------|----------|----------------------|
+| Architecture | Monolithic main loop | Composable contexts |
+| State Management | Manual dictionaries | Automatic context memory |
+| Multi-Asset | Single LLM call | Composed contexts per asset |
+| Extensibility | Hard to extend | Extension system |
+| Type Safety | Manual validation | Schema-validated actions |
+| Memory | Manual persistence | Automatic dual-tier |
+| Error Handling | Manual retry logic | Built-in resilience |
+| Code Reuse | Limited | High (context composition) |
+
+### Critical Success Factors
+
+1. **System Prompt** - Encodes trading discipline (most important!)
+2. **Context Composition** - Leverages Daydreams strength
+3. **Exit Plans** - Prevents churn via memory
+4. **Action Validation** - Schema-based safety
+5. **Memory Persistence** - Tracks position history
+
+### What We Keep (No Changes)
+
+✅ Daydreams core framework
+✅ x402 router integration
+✅ Dashboard
+✅ Event logging
+✅ Bridge API
+
+### What We Add (Minimal)
+
+✅ Hyperliquid extension
+✅ Technical context
+✅ Asset trading context
+✅ Portfolio context
+✅ Enhanced system prompt
+
+---
+
+## 📚 Documentation References
+
+- **HYPERLIQUID_INTEGRATION_ANALYSIS.md** - Deep dive into Nocturne architecture
+- **DAYDREAMS_HYPERLIQUID_INTEGRATION.md** - Complete implementation guide
+- **AGENT_STARTUP_FLOW.md** - How the agent starts and thinks
+- **RPC_OPTIMIZATION.md** - Lazy-loading for instant startup
+- **LOGS_AND_RESEARCH.md** - How to view agent decisions
+
+---
+
+## 🎯 Bottom Line
+
+**Don't rebuild. Don't refactor. Just add contexts and actions.**
+
+The Daydreams framework is already perfectly suited for trading agents. We just need to:
+
+1. Create contexts for technical analysis, asset trading, and portfolio management
+2. Create actions for order execution and position management
+3. Update the system prompt with trading discipline rules
+4. Compose everything together
+
+That's it. ~450 lines of code. 1 week to production.
+
+**Ready to build the most sophisticated trading agent on Hyperliquid! 🚀**
