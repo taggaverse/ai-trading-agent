@@ -2,10 +2,12 @@
  * Technical Indicators Client
  * Fetches technical indicators from x402 Questflow endpoint
  * Provides cryptocurrency analysis: long/short ratios, trading hotness, technical trends, capital flows, risk
+ * Uses x402 micropayments for each API call
  */
 
 import logger from '../utils/logger.js'
 import axios from 'axios'
+import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 
 export interface Indicators {
   rsi: number
@@ -29,10 +31,19 @@ export interface Indicators {
 export class IndicatorsClient {
   private apiKey: string
   private x402Endpoint: string = 'https://api-dev.intra-tls2.dctx.link/x402/swarm/qrn:swarm:68f09c333f7c40190878e52e'
+  private paymentManager?: X402PaymentManager
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, paymentManager?: X402PaymentManager) {
     this.apiKey = apiKey
+    this.paymentManager = paymentManager
     logger.info('IndicatorsClient initialized with x402 Questflow endpoint')
+  }
+
+  /**
+   * Set payment manager (for tracking costs)
+   */
+  setPaymentManager(manager: X402PaymentManager): void {
+    this.paymentManager = manager
   }
 
   /**
@@ -41,6 +52,16 @@ export class IndicatorsClient {
   async getIndicators(asset: string, timeframe: string): Promise<Indicators> {
     try {
       logger.info(`Fetching indicators for ${asset} (${timeframe}) from x402...`)
+
+      // Check balance before calling
+      if (this.paymentManager) {
+        const hasFunds = await this.paymentManager.hasSufficientBalance(X402_COSTS.QUESTFLOW_CALL)
+        if (!hasFunds) {
+          logger.warn(`⚠️  Insufficient x402 balance for Questflow call, using mock indicators`)
+          this.paymentManager.recordPayment('questflow', X402_COSTS.QUESTFLOW_CALL, false, `Insufficient balance for ${asset}`)
+          return this.getMockIndicators()
+        }
+      }
 
       // Call the x402 Questflow endpoint
       const response = await axios.post(
@@ -66,13 +87,25 @@ export class IndicatorsClient {
 
       if (response.data && response.data.success) {
         logger.info(`✓ Received indicators for ${asset}`)
+        // Record successful payment
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('questflow', X402_COSTS.QUESTFLOW_CALL, true, `Indicators for ${asset}/${timeframe}`)
+        }
         return this.parseIndicators(response.data.data)
       } else {
         logger.warn(`✗ Invalid response from x402 endpoint for ${asset}`)
+        // Record failed payment
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('questflow', X402_COSTS.QUESTFLOW_CALL, false, `Invalid response for ${asset}`)
+        }
         return this.getMockIndicators()
       }
     } catch (error) {
       logger.warn(`✗ Failed to fetch indicators from x402 for ${asset}:`, error instanceof Error ? error.message : error)
+      // Record failed payment
+      if (this.paymentManager) {
+        this.paymentManager.recordPayment('questflow', X402_COSTS.QUESTFLOW_CALL, false, `Error fetching ${asset}`)
+      }
       // Fall back to mock indicators
       return this.getMockIndicators()
     }

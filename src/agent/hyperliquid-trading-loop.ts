@@ -8,6 +8,7 @@ import { HyperliquidAPI } from './hyperliquid-client.js'
 import { IndicatorsClient } from './indicators-client.js'
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './hyperliquid-system-prompt.js'
 import { selectModel } from './router.js'
+import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
@@ -43,17 +44,26 @@ export class HyperliquidTradingLoop {
   private state: TradeLoopState
   private running: boolean = false
   private dreamsRouter: any
+  private paymentManager?: X402PaymentManager
 
   constructor(
     hyperliquidAPI: HyperliquidAPI,
     indicatorsClient: IndicatorsClient,
     config: TradeLoopConfig,
-    dreamsRouter?: any
+    dreamsRouter?: any,
+    paymentManager?: X402PaymentManager
   ) {
     this.hyperliquidAPI = hyperliquidAPI
     this.indicatorsClient = indicatorsClient
     this.config = config
     this.dreamsRouter = dreamsRouter
+    this.paymentManager = paymentManager
+    
+    // Set payment manager on indicators client
+    if (paymentManager) {
+      this.indicatorsClient.setPaymentManager(paymentManager)
+    }
+    
     this.state = {
       iteration: 0,
       lastUpdate: 0,
@@ -412,13 +422,36 @@ Return ONLY valid JSON array, no other text.`
     totalPnL: number
     uptime: number
     errors: number
+    paymentStats?: any
   } {
     return {
       iteration: this.state.iteration,
       totalTrades: this.state.totalTrades,
       totalPnL: this.state.totalPnL,
       uptime: Date.now() - this.state.lastUpdate,
-      errors: this.state.errors.length
+      errors: this.state.errors.length,
+      paymentStats: this.paymentManager?.getStats()
     }
+  }
+
+  /**
+   * Get payment statistics
+   */
+  getPaymentStats() {
+    return this.paymentManager?.getStats()
+  }
+
+  /**
+   * Get cost breakdown
+   */
+  getCostBreakdown() {
+    return this.paymentManager?.getCostBreakdown()
+  }
+
+  /**
+   * Get monthly cost estimate
+   */
+  getMonthlyEstimate() {
+    return this.paymentManager?.getMonthlyEstimate()
   }
 }

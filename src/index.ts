@@ -18,6 +18,7 @@ import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from "./agent/hyperliquid-system-pr
 import { HyperliquidAPI } from "./agent/hyperliquid-client.js"
 import { IndicatorsClient } from "./agent/indicators-client.js"
 import { HyperliquidTradingLoop } from "./agent/hyperliquid-trading-loop.js"
+import { X402PaymentManager } from "./agent/x402-payment-manager.js"
 
 const app = express()
 
@@ -282,6 +283,11 @@ async function main() {
       logger.info(`   - Stats: http://${apiHost}:${apiPort}/stats`)
     })
 
+    // Initialize x402 Payment Manager
+    logger.info("Initializing x402 Payment Manager...")
+    const paymentManager = new X402PaymentManager(account, dreamsRouter)
+    logger.info("✓ x402 Payment Manager initialized")
+
     // Initialize Hyperliquid trading loop
     // MAINNET: Start with conservative position sizing
     const isMainnet = config.HYPERLIQUID_NETWORK === 'mainnet'
@@ -298,7 +304,28 @@ async function main() {
       assets: ['BTC', 'ETH'],
       maxPositionSize: maxPositionSize,
       maxLeverage: maxLeverage
-    }, dreamsRouter)
+    }, dreamsRouter, paymentManager)
+
+    // Add payment stats endpoint
+    app.get("/payments", (req, res) => {
+      try {
+        const paymentStats = tradingLoop.getPaymentStats()
+        const costBreakdown = tradingLoop.getCostBreakdown()
+        const monthlyEstimate = tradingLoop.getMonthlyEstimate()
+        
+        res.json({
+          stats: paymentStats,
+          breakdown: costBreakdown,
+          monthlyEstimate: monthlyEstimate,
+          timestamp: new Date().toISOString(),
+        })
+      } catch (error) {
+        res.status(500).json({
+          error: "Failed to fetch payment stats",
+          timestamp: new Date().toISOString(),
+        })
+      }
+    })
 
     // Start trading loop in background
     tradingLoop.start().catch(error => {
