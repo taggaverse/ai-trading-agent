@@ -21,11 +21,12 @@ export default function App() {
 
   const fetchData = async () => {
     try {
+      const baseURL = 'http://localhost:3000'
       const [health, stats, portfolio, diary] = await Promise.all([
-        axios.get('/api/health'),
-        axios.get('/api/stats'),
-        axios.get('/api/portfolio'),
-        axios.get('/api/diary')
+        axios.get(`${baseURL}/health`),
+        axios.get(`${baseURL}/stats`),
+        axios.get(`${baseURL}/portfolio`),
+        axios.get(`${baseURL}/diary`)
       ])
 
       setData({
