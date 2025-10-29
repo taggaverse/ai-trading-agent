@@ -5,63 +5,84 @@ import './PnLChart.css'
 export default function PnLChart({ diary, portfolio, stats }) {
   const [chartData, setChartData] = useState([])
   const [timeframe, setTimeframe] = useState('all') // all, 24h, 7d, 30d
-  const [currentValue, setCurrentValue] = useState(10000)
+  const [currentValue, setCurrentValue] = useState(0)
   const [pnlPercent, setPnlPercent] = useState(0)
-  const [highestValue, setHighestValue] = useState(10000)
-  const [lowestValue, setLowestValue] = useState(10000)
-  const [initialBalance, setInitialBalance] = useState(10000)
+  const [highestValue, setHighestValue] = useState(0)
+  const [lowestValue, setLowestValue] = useState(0)
+  const [initialBalance, setInitialBalance] = useState(0)
+  const [isInitialized, setIsInitialized] = useState(false)
 
-  useEffect(() => {
-    // Get actual balance from portfolio
-    let actualBalance = 10000
+  // Helper function to calculate total balance from portfolio
+  const calculateTotalBalance = (portfolioData) => {
+    let totalBalance = 0
     
-    if (portfolio && portfolio.balances) {
-      // Sum up all balances across chains
-      let totalBalance = 0
-      
-      // Handle both old and new portfolio structure
-      // New structure: portfolio.balances.chain.balance
-      // Old structure: portfolio.balances.chain.usdc/eth/sol/bnb
-      
-      Object.entries(portfolio.balances).forEach(([chain, data]) => {
-        if (data && typeof data === 'object') {
-          // If it has a balance property (new structure)
-          if (typeof data.balance === 'number') {
-            const balance = data.balance
-            const gasToken = data.gasToken
-            
-            // Convert to USDC equivalent based on token type
-            if (gasToken === 'USDC') {
-              totalBalance += balance
-            } else if (gasToken === 'ETH') {
-              totalBalance += balance * 2500 // Approximate ETH price
-            } else if (gasToken === 'SOL') {
-              totalBalance += balance * 100 // Approximate SOL price
-            } else if (gasToken === 'BNB') {
-              totalBalance += balance * 600 // Approximate BNB price
-            }
-          } else {
-            // Old structure: check for specific tokens
-            if (data.usdc) totalBalance += data.usdc
-            if (data.eth) totalBalance += data.eth * 2500
-            if (data.sol) totalBalance += data.sol * 100
-            if (data.bnb) totalBalance += data.bnb * 600
-          }
-        }
-      })
-      
-      if (totalBalance > 0) {
-        actualBalance = totalBalance
-      }
+    if (!portfolioData || !portfolioData.balances) {
+      return totalBalance
     }
     
-    setCurrentValue(actualBalance)
+    Object.entries(portfolioData.balances).forEach(([chain, data]) => {
+      if (data && typeof data === 'object') {
+        // If it has a balance property (new structure)
+        if (typeof data.balance === 'number') {
+          const balance = data.balance
+          const gasToken = data.gasToken
+          
+          // Convert to USDC equivalent based on token type
+          if (gasToken === 'USDC') {
+            totalBalance += balance
+          } else if (gasToken === 'ETH') {
+            totalBalance += balance * 2500 // Approximate ETH price
+          } else if (gasToken === 'SOL') {
+            totalBalance += balance * 100 // Approximate SOL price
+          } else if (gasToken === 'BNB') {
+            totalBalance += balance * 600 // Approximate BNB price
+          }
+        } else {
+          // Old structure: check for specific tokens
+          if (data.usdc) totalBalance += data.usdc
+          if (data.eth) totalBalance += data.eth * 2500
+          if (data.sol) totalBalance += data.sol * 100
+          if (data.bnb) totalBalance += data.bnb * 600
+        }
+      }
+    })
     
-    // Calculate P&L
-    const pnl = actualBalance - initialBalance
-    const pnlPercentage = Math.round((pnl / initialBalance) * 10000) / 100
-    setPnlPercent(pnlPercentage)
-  }, [portfolio, initialBalance])
+    return totalBalance
+  }
+
+  useEffect(() => {
+    // Initialize on first load - set initial balance to current balance
+    if (!isInitialized && portfolio) {
+      const balance = calculateTotalBalance(portfolio)
+      if (balance > 0) {
+        setInitialBalance(balance)
+        setCurrentValue(balance)
+        setHighestValue(balance)
+        setLowestValue(balance)
+        setIsInitialized(true)
+      }
+    }
+  }, [portfolio, isInitialized])
+
+  useEffect(() => {
+    // Update current value and P&L
+    if (!isInitialized || initialBalance === 0) return
+    
+    const actualBalance = calculateTotalBalance(portfolio)
+    
+    if (actualBalance > 0) {
+      setCurrentValue(actualBalance)
+      
+      // Update high/low
+      setHighestValue(prev => Math.max(prev, actualBalance))
+      setLowestValue(prev => Math.min(prev, actualBalance))
+      
+      // Calculate P&L
+      const pnl = actualBalance - initialBalance
+      const pnlPercentage = initialBalance > 0 ? Math.round((pnl / initialBalance) * 10000) / 100 : 0
+      setPnlPercent(pnlPercentage)
+    }
+  }, [portfolio, initialBalance, isInitialized])
 
   useEffect(() => {
     if (!diary || !diary.length) return
@@ -258,7 +279,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
       <div className="pnl-footer">
         <div className="footer-item">
           <span className="footer-label">Initial Balance</span>
-          <span className="footer-value">$10,000.00</span>
+          <span className="footer-value">${initialBalance.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
         </div>
         <div className="footer-item">
           <span className="footer-label">Total Trades</span>
