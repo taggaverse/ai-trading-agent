@@ -172,13 +172,14 @@ export class HyperliquidTradingLoop {
       for (const decision of decisions) {
         try {
           await this.executeDecision(decision, portfolioState)
-          this.state.decisions.push(decision)
           if (decision.action !== 'HOLD') {
             this.state.totalTrades++
           }
         } catch (error) {
           logger.error(`   Failed to execute ${decision.asset} ${decision.action}:`, error)
         }
+        // Always record decision, even if execution failed
+        this.state.decisions.push(decision)
       }
 
       // Step 6: Update state
