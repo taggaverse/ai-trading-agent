@@ -4,7 +4,11 @@ import './StatsGrid.css'
 export default function StatsGrid({ stats, portfolio }) {
   if (!stats || !portfolio) return null
 
-  const totalBalance = Object.values(portfolio.balances || {}).reduce((a, b) => a + b, 0)
+  // Calculate total balance from USDC across all chains
+  const totalBalance = Object.values(portfolio.balances || {}).reduce((sum, balance) => {
+    return sum + (typeof balance === 'number' ? balance : (balance.usdc || 0))
+  }, 0)
+  
   const usedMargin = Object.values(portfolio.positions || {}).reduce((sum, pos) => sum + (pos.margin || 0), 0)
   const winRate = stats.totalTrades > 0 ? ((stats.totalTrades - Math.abs(stats.totalProfit < 0 ? 1 : 0)) / stats.totalTrades * 100).toFixed(1) : 0
 
