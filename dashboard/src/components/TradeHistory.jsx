@@ -5,7 +5,25 @@ export default function TradeHistory({ portfolio }) {
   if (!portfolio) return null
 
   const positions = Object.entries(portfolio.positions || {})
-  const balances = Object.entries(portfolio.balances || {})
+  const balances = portfolio.balances || {}
+
+  const getGasTokenStatus = (chain, gasAmount) => {
+    const minRequired = {
+      base: 0.01,
+      solana: 0.1,
+      bsc: 0.01,
+      hyperliquid: 0
+    }
+    
+    const required = minRequired[chain] || 0
+    const hasEnough = gasAmount >= required
+    
+    return {
+      hasEnough,
+      required,
+      status: hasEnough ? '✓' : '⚠️'
+    }
+  }
 
   return (
     <div className="trade-history">
@@ -40,21 +58,52 @@ export default function TradeHistory({ portfolio }) {
       </div>
 
       <div className="history-section">
-        <h3>Wallet Balances</h3>
-        {balances.length > 0 ? (
-          <div className="balances-table">
-            <div className="table-header">
-              <div>Chain</div>
-              <div>Balance</div>
-              <div>USD Value</div>
-            </div>
-            {balances.map(([chain, balance], idx) => (
-              <div key={idx} className="table-row">
-                <div className="chain-badge">{chain}</div>
-                <div>{balance?.amount?.toFixed(4)} {balance?.symbol}</div>
-                <div>${balance?.usdValue?.toFixed(2)}</div>
-              </div>
-            ))}
+        <h3>Wallet Balances & Gas Tokens</h3>
+        {Object.keys(balances).length > 0 ? (
+          <div className="balances-list">
+            {Object.entries(balances).map(([chain, data], idx) => {
+              const gasToken = data.gasToken || (chain === 'base' ? 'ETH' : chain === 'solana' ? 'SOL' : chain === 'bsc' ? 'BNB' : 'USDC')
+              const gasAmount = data[gasToken.toLowerCase()] || 0
+              const usdcAmount = data.usdc || 0
+              const status = getGasTokenStatus(chain, gasAmount)
+              
+              return (
+                <div key={idx} className="balance-card">
+                  <div className="balance-header">
+                    <span className="chain-name">{chain.toUpperCase()}</span>
+                    <span className={`gas-status ${status.hasEnough ? 'ready' : 'warning'}`}>
+                      {status.status} {status.hasEnough ? 'Ready' : 'Low Gas'}
+                    </span>
+                  </div>
+                  
+                  <div className="balance-tokens">
+                    <div className="token-row">
+                      <span className="token-label">{gasToken} (Gas Token)</span>
+                      <span className={`token-amount ${status.hasEnough ? 'positive' : 'negative'}`}>
+                        {gasAmount.toFixed(6)} {gasToken}
+                      </span>
+                    </div>
+                    {chain !== 'hyperliquid' && (
+                      <div className="token-row">
+                        <span className="token-label">USDC (Trading)</span>
+                        <span className="token-amount">${usdcAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                    {chain === 'hyperliquid' && (
+                      <div className="token-row">
+                        <span className="token-label">USDC (Balance)</span>
+                        <span className="token-amount">${usdcAmount.toFixed(2)}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div className="balance-requirements">
+                    <span className="requirement-label">Min Gas Required:</span>
+                    <span className="requirement-value">{status.required} {gasToken}</span>
+                  </div>
+                </div>
+              )
+            })}
           </div>
         ) : (
           <p className="empty-state">No balances</p>

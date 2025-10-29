@@ -21,7 +21,12 @@ app.use(express.json())
 const tradingData = {
   decisions: [] as any[],
   positions: {} as Record<string, any>,
-  balances: {} as Record<string, number>,
+  balances: {
+    base: { eth: 0, usdc: 0, symbol: "ETH", gasToken: "ETH" },
+    solana: { sol: 0, usdc: 0, symbol: "SOL", gasToken: "SOL" },
+    hyperliquid: { usdc: 0, symbol: "USDC", gasToken: "USDC" },
+    bsc: { bnb: 0, usdc: 0, symbol: "BNB", gasToken: "BNB" },
+  } as Record<string, any>,
   stats: {
     totalTrades: 0,
     totalProfit: 0,
