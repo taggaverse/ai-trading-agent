@@ -12,6 +12,7 @@ import { executeTrade } from "./agent/actions/execute-trade.js"
 import { closePosition } from "./agent/actions/close-position.js"
 import { manageRisk, shouldStopTrading } from "./agent/actions/risk-management.js"
 import { WalletManager } from "./agent/wallet-info.js"
+import { BridgeManager } from "./agent/bridge-manager.js"
 
 const app = express()
 
@@ -104,6 +105,104 @@ app.get("/wallets/balances", async (req, res) => {
   } catch (error) {
     res.status(500).json({
       error: "Failed to fetch wallet balances",
+      timestamp: new Date().toISOString(),
+    })
+  }
+})
+
+// Bridge quote endpoint
+app.get("/bridge/quote", async (req, res) => {
+  try {
+    const { from, to, amount } = req.query
+    
+    if (!from || !to || !amount) {
+      return res.status(400).json({
+        error: "Missing required parameters: from, to, amount",
+      })
+    }
+
+    const toChains = (to as string).split(",").map(c => c.trim())
+    const amountWei = BridgeManager.toWei(parseFloat(amount as string))
+    
+    const quote = await BridgeManager.getQuote(from as string, toChains, amountWei)
+    res.json({
+      quote,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      error: error.message || "Failed to get bridge quote",
+      timestamp: new Date().toISOString(),
+    })
+  }
+})
+
+// Bridge rebalance check endpoint
+app.post("/bridge/rebalance-check", async (req, res) => {
+  try {
+    const balances = await WalletManager.getAllBalances()
+    
+    // Convert to simple balance map
+    const balanceMap: Record<string, number> = {}
+    const minGasRequired: Record<string, number> = {
+      base: 0.01,
+      solana: 0.1,
+      bsc: 0.01,
+      hyperliquid: 0,
+    }
+
+    for (const [chain, info] of Object.entries(balances)) {
+      balanceMap[chain] = info.balance || 0
+    }
+
+    const rebalanceInfo = BridgeManager.shouldRebalance(balanceMap, minGasRequired)
+    
+    res.json({
+      needsRebalance: rebalanceInfo.needsRebalance,
+      deficitChains: rebalanceInfo.deficitChains,
+      surplusChains: rebalanceInfo.surplusChains,
+      currentBalances: balanceMap,
+      minRequired: minGasRequired,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      error: error.message || "Failed to check rebalance",
+      timestamp: new Date().toISOString(),
+    })
+  }
+})
+
+// Bridge recommended route endpoint
+app.get("/bridge/route", async (req, res) => {
+  try {
+    const { from, to, amount } = req.query
+    
+    if (!from || !to || !amount) {
+      return res.status(400).json({
+        error: "Missing required parameters: from, to, amount",
+      })
+    }
+
+    const route = await BridgeManager.getRecommendedRoute(
+      from as string,
+      to as string,
+      parseFloat(amount as string)
+    )
+    
+    if (!route) {
+      return res.status(400).json({
+        error: "Could not find bridge route",
+      })
+    }
+
+    res.json({
+      route,
+      timestamp: new Date().toISOString(),
+    })
+  } catch (error: any) {
+    res.status(500).json({
+      error: error.message || "Failed to get bridge route",
       timestamp: new Date().toISOString(),
     })
   }
