@@ -22,12 +22,16 @@ export default function App() {
   const fetchData = async () => {
     try {
       const baseURL = 'http://localhost:3000'
+      console.log('Fetching data from:', baseURL)
+      
       const [health, stats, portfolio, diary] = await Promise.all([
-        axios.get(`${baseURL}/health`),
-        axios.get(`${baseURL}/stats`),
-        axios.get(`${baseURL}/portfolio`),
-        axios.get(`${baseURL}/diary`)
+        axios.get(`${baseURL}/health`).catch(e => { console.error('health error:', e); throw e }),
+        axios.get(`${baseURL}/stats`).catch(e => { console.error('stats error:', e); throw e }),
+        axios.get(`${baseURL}/portfolio`).catch(e => { console.error('portfolio error:', e); throw e }),
+        axios.get(`${baseURL}/diary`).catch(e => { console.error('diary error:', e); throw e })
       ])
+
+      console.log('Data fetched successfully:', { health: health.data, stats: stats.data })
 
       setData({
         health: health.data,
@@ -37,10 +41,10 @@ export default function App() {
         chains: health.data.chains || []
       })
       setError(null)
+      setLoading(false)
     } catch (err) {
-      setError(err.message)
       console.error('Failed to fetch data:', err)
-    } finally {
+      setError(err.message || 'Failed to connect to agent')
       setLoading(false)
     }
   }
@@ -53,21 +57,21 @@ export default function App() {
 
   if (loading) {
     return (
-      <div className="app loading">
+      <div className="app loading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', flexDirection: 'column' }}>
         <div className="spinner"></div>
-        <p>Loading agent data...</p>
+        <p style={{ color: '#e2e8f0', marginTop: '20px' }}>Loading agent data...</p>
       </div>
     )
   }
 
   if (error) {
     return (
-      <div className="app error">
-        <div className="error-box">
-          <h2>Connection Error</h2>
-          <p>{error}</p>
-          <p className="hint">Make sure the trading agent is running on port 3000</p>
-          <button onClick={fetchData}>Retry</button>
+      <div className="app error" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh' }}>
+        <div className="error-box" style={{ background: 'rgba(239, 68, 68, 0.1)', border: '1px solid rgba(239, 68, 68, 0.5)', borderRadius: '12px', padding: '40px', textAlign: 'center', maxWidth: '500px' }}>
+          <h2 style={{ color: '#ef4444', marginBottom: '16px' }}>Connection Error</h2>
+          <p style={{ color: '#e2e8f0', marginBottom: '8px' }}>{error}</p>
+          <p style={{ color: '#94a3b8', fontSize: '12px', marginTop: '16px' }}>Make sure the trading agent is running on port 3000</p>
+          <button onClick={fetchData} style={{ marginTop: '24px', padding: '10px 24px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }}>Retry</button>
         </div>
       </div>
     )
