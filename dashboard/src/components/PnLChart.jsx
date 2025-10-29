@@ -219,7 +219,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
         <div className="stat-item">
           <span className="stat-label">P&L</span>
           <span className={`stat-value ${isProfitable ? 'positive' : 'negative'}`}>
-            {isProfitable ? '+' : ''}{(currentValue - 10000).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {isProfitable ? '+' : ''}{(currentValue - initialBalance).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </span>
         </div>
         <div className="stat-item">
