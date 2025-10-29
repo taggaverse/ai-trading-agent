@@ -85,19 +85,19 @@ export default function PnLChart({ diary, portfolio, stats }) {
   }, [portfolio, initialBalance, isInitialized])
 
   useEffect(() => {
-    if (!diary || !diary.length) return
+    if (!isInitialized || initialBalance === 0) return
 
     const data = []
     const now = Date.now()
 
     // Filter by timeframe
-    let filteredDiary = diary
+    let filteredDiary = diary || []
     if (timeframe === '24h') {
-      filteredDiary = diary.filter(d => now - new Date(d.timestamp).getTime() < 24 * 60 * 60 * 1000)
+      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 24 * 60 * 60 * 1000)
     } else if (timeframe === '7d') {
-      filteredDiary = diary.filter(d => now - new Date(d.timestamp).getTime() < 7 * 24 * 60 * 60 * 1000)
+      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 7 * 24 * 60 * 60 * 1000)
     } else if (timeframe === '30d') {
-      filteredDiary = diary.filter(d => now - new Date(d.timestamp).getTime() < 30 * 24 * 60 * 60 * 1000)
+      filteredDiary = filteredDiary.filter(d => now - new Date(d.timestamp).getTime() < 30 * 24 * 60 * 60 * 1000)
     }
 
     // Add initial point
@@ -113,31 +113,33 @@ export default function PnLChart({ diary, portfolio, stats }) {
     let minValue = initialBalance
 
     // Process diary entries
-    filteredDiary.forEach((entry, idx) => {
-      const timestamp = new Date(entry.timestamp)
-      
-      // Simulate PnL changes based on entry count
-      const randomWalk = Math.sin(idx * 0.5) * 500 + Math.cos(idx * 0.3) * 300
-      const runningBalance = initialBalance + (stats?.totalPnL || 0) + randomWalk
-      
-      maxValue = Math.max(maxValue, runningBalance)
-      minValue = Math.min(minValue, runningBalance)
+    if (filteredDiary && filteredDiary.length > 0) {
+      filteredDiary.forEach((entry, idx) => {
+        const timestamp = new Date(entry.timestamp)
+        
+        // Use actual current value for all points (since we don't have historical balance data)
+        // In a real scenario, this would come from historical balance snapshots
+        const runningBalance = currentValue
+        
+        maxValue = Math.max(maxValue, runningBalance)
+        minValue = Math.min(minValue, runningBalance)
 
-      data.push({
-        timestamp: timestamp.toLocaleString(),
-        value: Math.round(runningBalance * 100) / 100,
-        pnl: Math.round((runningBalance - initialBalance) * 100) / 100,
-        pnlPercent: Math.round(((runningBalance - initialBalance) / initialBalance) * 10000) / 100,
-        time: timestamp.getTime()
+        data.push({
+          timestamp: timestamp.toLocaleString(),
+          value: Math.round(runningBalance * 100) / 100,
+          pnl: Math.round((runningBalance - initialBalance) * 100) / 100,
+          pnlPercent: initialBalance > 0 ? Math.round(((runningBalance - initialBalance) / initialBalance) * 10000) / 100 : 0,
+          time: timestamp.getTime()
+        })
       })
-    })
+    }
 
     // Add current value (use actual balance from portfolio)
     data.push({
       timestamp: new Date().toLocaleString(),
       value: Math.round(currentValue * 100) / 100,
       pnl: Math.round((currentValue - initialBalance) * 100) / 100,
-      pnlPercent: Math.round(((currentValue - initialBalance) / initialBalance) * 10000) / 100,
+      pnlPercent: initialBalance > 0 ? Math.round(((currentValue - initialBalance) / initialBalance) * 10000) / 100 : 0,
       time: Date.now()
     })
 
@@ -147,7 +149,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
     setChartData(data)
     setHighestValue(maxValue)
     setLowestValue(minValue)
-  }, [diary, stats, timeframe, currentValue, initialBalance])
+  }, [diary, timeframe, currentValue, initialBalance, isInitialized])
 
   const isProfitable = pnlPercent >= 0
 
