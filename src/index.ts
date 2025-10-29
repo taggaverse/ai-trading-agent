@@ -272,11 +272,21 @@ async function main() {
     })
 
     // Initialize Hyperliquid trading loop
+    // MAINNET: Start with conservative position sizing
+    const isMainnet = config.HYPERLIQUID_NETWORK === 'mainnet'
+    const maxPositionSize = isMainnet ? 0.005 : 0.05  // 0.5% on mainnet, 5% on testnet
+    const maxLeverage = isMainnet ? 2 : 5              // 2x on mainnet, 5x on testnet
+    
+    logger.info(`🚀 Trading Loop Configuration:`)
+    logger.info(`   Network: ${isMainnet ? 'MAINNET' : 'TESTNET'}`)
+    logger.info(`   Max Position Size: ${(maxPositionSize * 100).toFixed(2)}%`)
+    logger.info(`   Max Leverage: ${maxLeverage}x`)
+    
     const tradingLoop = new HyperliquidTradingLoop(hyperliquidAPI, indicatorsClient, {
       tradingInterval: tradingInterval,
       assets: ['BTC', 'ETH'],
-      maxPositionSize: 0.05, // 5%
-      maxLeverage: 5
+      maxPositionSize: maxPositionSize,
+      maxLeverage: maxLeverage
     }, dreamsRouter)
 
     // Start trading loop in background
