@@ -6,6 +6,7 @@ import ChartsSection from './components/ChartsSection'
 import DecisionLog from './components/DecisionLog'
 import TradeHistory from './components/TradeHistory'
 import UnitEconomics from './components/UnitEconomics'
+import PnLChart from './components/PnLChart'
 import './App.css'
 
 export default function App() {
@@ -88,6 +89,7 @@ export default function App() {
       <Header health={data.health} chains={data.chains} />
       <main className="main-content">
         <StatsGrid stats={data.stats} portfolio={data.portfolio} walletBalances={data.walletBalances} />
+        <PnLChart diary={data.diary} portfolio={data.portfolio} stats={data.stats} />
         <ChartsSection stats={data.stats} diary={data.diary} />
         <div className="grid-2">
           <DecisionLog diary={data.diary} />
