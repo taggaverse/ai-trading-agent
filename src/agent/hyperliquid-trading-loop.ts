@@ -192,23 +192,104 @@ export class HyperliquidTradingLoop {
   }
 
   /**
-   * Call LLM with context via Dreams Router
-   * TODO: Integrate with real Dreams Router when API is available
+   * Call LLM with context via Dreams Router (x402 payments)
    */
   private async callLLM(context: Record<string, any>): Promise<TradeDecision[]> {
     try {
-      logger.info('   [LLM] Analyzing market with Dreams Router...')
+      logger.info('   [LLM] Calling Dreams Router for trading decisions...')
 
-      // TODO: Replace with real Dreams Router call
-      // For now, use mock decisions with system prompt guidance
-      // const modelName = selectModel('medium') // GPT-4o for best quality
-      // const response = await this.dreamsRouter(modelName)({ ... })
+      // If no dreams router available, use mock
+      if (!this.dreamsRouter) {
+        logger.info('   [Mock LLM] Dreams Router not available, using mock decisions')
+        return this.getMockDecisions(context)
+      }
 
-      // Using mock decisions for now
-      logger.info('   [Mock LLM] Using RSI-based mock decisions')
-      return this.getMockDecisions(context)
+      // Get the model name (x402 pricing: medium = GPT-4o at $0.10 per request)
+      const modelName = selectModel('medium') // GPT-4o for best quality
+
+      // Build the prompt
+      const userPrompt = `You are a professional quantitative trader. Analyze the following market context and provide trading decisions.
+
+Market Context:
+${JSON.stringify(context, null, 2)}
+
+Respond with a JSON array of trading decisions. Each decision must have:
+- asset: string (e.g., "BTC", "ETH")
+- action: "BUY" | "SELL" | "HOLD"
+- rationale: string (brief explanation)
+- entryPrice: number (if BUY/SELL)
+- takeProfit: number (if BUY/SELL)
+- stopLoss: number (if BUY/SELL)
+- positionSize: number (as decimal, e.g., 0.05 for 5%)
+- exitPlan: string (conditions to close)
+
+Return ONLY valid JSON array, no other text.`
+
+      // Call the LLM via Dreams Router
+      // dreamsRouter(modelName) returns a model compatible with OpenAI SDK
+      const model = this.dreamsRouter(modelName)
+
+      // Call the model with OpenAI-compatible format
+      // The model is typically used with fetch or axios
+      let response: any
+      
+      try {
+        // Try calling as a function first (if it's a callable model)
+        if (typeof model === 'function') {
+          response = await model({
+            system: HYPERLIQUID_TRADING_SYSTEM_PROMPT,
+            messages: [
+              {
+                role: 'user',
+                content: userPrompt
+              }
+            ]
+          })
+        } else if (model && typeof model.call === 'function') {
+          // Try .call method
+          response = await model.call({
+            system: HYPERLIQUID_TRADING_SYSTEM_PROMPT,
+            messages: [
+              {
+                role: 'user',
+                content: userPrompt
+              }
+            ]
+          })
+        } else {
+          // Fallback to mock if model is not callable
+          logger.warn('   ✗ Model is not callable, using mock decisions')
+          return this.getMockDecisions(context)
+        }
+      } catch (callError) {
+        logger.error('   ✗ Failed to call model:', callError)
+        return this.getMockDecisions(context)
+      }
+
+      // Parse the response
+      let decisions: TradeDecision[] = []
+      try {
+        // Handle different response formats
+        const content = typeof response === 'string' ? response : response.content || response.text || response || ''
+        
+        // Extract JSON from response
+        const jsonMatch = content.match(/\[[\s\S]*\]/)
+        if (jsonMatch) {
+          decisions = JSON.parse(jsonMatch[0])
+          logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
+        } else {
+          logger.warn('   ✗ No JSON array found in LLM response')
+          decisions = this.getMockDecisions(context)
+        }
+      } catch (parseError) {
+        logger.error('   ✗ Failed to parse LLM response:', parseError)
+        decisions = this.getMockDecisions(context)
+      }
+
+      return decisions
     } catch (error) {
       logger.error('   ✗ LLM call failed:', error)
+      // Fall back to mock decisions
       return this.getMockDecisions(context)
     }
   }
