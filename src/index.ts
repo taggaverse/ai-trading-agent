@@ -344,132 +344,19 @@ async function main() {
       process.exit(1)
     })
 
+    // OLD LOOP DISABLED - Using HyperliquidTradingLoop instead
     // Main trading loop
-    logger.info(`Starting trading loop (interval: ${tradingInterval}ms)`)
+    // logger.info(`Starting trading loop (interval: ${tradingInterval}ms)`)
 
+    // OLD LOOP DISABLED - Using HyperliquidTradingLoop instead
+    /*
     let iteration = 0
     let tradingContext_state = await tradingContext.create({ args: { accountId: "main" } })
 
     while (true) {
-      iteration++
-      logger.info(`\n=== Trading Iteration ${iteration} ===`)
-
-      try {
-        // Check balance before making decision
-        if (!await balanceManager.canMakeDecision()) {
-          logger.warn("Insufficient balance for trading decision. Pausing...")
-          
-          if (!await balanceManager.checkAndRefill()) {
-            logger.error("Failed to refill balance. Stopping agent.")
-            break
-          }
-        }
-
-        const currentBalance = await balanceManager.getBalance()
-        logger.info(`Current balance: $${currentBalance}`)
-
-        // 1. Update Market Context (simplified - would fetch real OHLCV data)
-        const market_state = await marketContext.create({
-          args: { symbol: "BTC/USDC", chain: "base" }
-        })
-        
-        // 2. Query Research via x402
-        const { narratives, projects } = await queryResearch("BTC", x402Client)
-        const research_state = await researchContext.create({ args: { symbol: "BTC" } })
-        
-        // 3. Initialize Portfolio Context
-        const portfolio_state = await portfolioContext.create({ args: { accountId: "main" } })
-        
-        // 4. Initialize Risk Context
-        const risk_state = await riskContext.create({ args: { accountId: "main" } })
-
-        // 5. Generate trading opportunities
-        const opportunities = generateTradingOpportunities(tradingContext_state)
-
-        if (opportunities.length > 0) {
-          logger.info(`Found ${opportunities.length} trading opportunities`)
-
-          for (const opportunity of opportunities) {
-            logTradingOpportunity(opportunity)
-
-            // Evaluate decision
-            const decision = evaluateTradingDecision(opportunity, tradingContext_state)
-
-            if (decision.action === "execute") {
-              logger.info(`Executing trade: ${opportunity.symbol} on ${opportunity.chain}`)
-
-              try {
-                // Execute trade
-                const tradeResult = await executeTrade({
-                  opportunity,
-                  // Pass clients as needed
-                })
-
-                if (tradeResult.success) {
-                  logger.info(`Trade executed: ${tradeResult.orderId}`)
-                  tradingData.stats.totalTrades++
-                  tradingData.stats.totalProfit += tradeResult.position.pnl
-                }
-              } catch (error) {
-                logger.error("Trade execution failed:", error)
-              }
-            } else if (decision.action === "monitor") {
-              logger.info(`Monitoring opportunity: ${opportunity.symbol}`)
-            } else {
-              logger.info(`Skipping opportunity: ${opportunity.symbol} (${decision.reason})`)
-            }
-
-            // Record decision
-            tradingData.decisions.push({
-              iteration,
-              timestamp: new Date().toISOString(),
-              opportunity: opportunity.symbol,
-              decision: decision.action,
-              confidence: opportunity.confidence,
-              balance: currentBalance,
-            })
-          }
-        } else {
-          logger.info("No trading opportunities found")
-        }
-
-        // Check risk and manage if needed
-        if (risk_state.alerts.length > 0) {
-          logger.warn(`${risk_state.alerts.length} risk alerts detected`)
-          
-          const riskResult = await manageRisk({
-            portfolio: portfolio_state,
-            risk: risk_state,
-          })
-
-          if (riskResult.alertsHandled > 0) {
-            logger.warn(`${riskResult.alertsHandled} risk alerts handled`)
-          }
-        }
-
-        // Check if should stop trading
-        if (shouldStopTrading(risk_state)) {
-          logger.error("Risk limits exceeded - stopping trading")
-          break
-        }
-
-        // Log summary
-        const summary = getTradingContextSummary(tradingContext_state)
-        logger.info(`Portfolio: Balance=$${summary.totalBalance}, P&L=$${summary.totalPnl}, Risk=${summary.riskLevel}`)
-
-        // Keep only last 1000 decisions
-        if (tradingData.decisions.length > 1000) {
-          tradingData.decisions = tradingData.decisions.slice(-1000)
-        }
-
-        // Wait for next interval
-        await new Promise(resolve => setTimeout(resolve, tradingInterval))
-
-      } catch (error) {
-        logger.error(`Error in trading iteration ${iteration}:`, error)
-        await new Promise(resolve => setTimeout(resolve, tradingInterval))
-      }
+      // ... old loop code disabled ...
     }
+    */
 
   } catch (error) {
     logger.error("Fatal error:", error)
