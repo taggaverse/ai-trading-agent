@@ -33,7 +33,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
           } else if (gasToken === 'ETH') {
             totalBalance += balance * 2500 // Approximate ETH price
           } else if (gasToken === 'SOL') {
-            totalBalance += balance * 100 // Approximate SOL price
+            totalBalance += balance * 200 // Current SOL price ~$200
           } else if (gasToken === 'BNB') {
             totalBalance += balance * 600 // Approximate BNB price
           }
@@ -41,7 +41,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
           // Old structure: check for specific tokens
           if (data.usdc) totalBalance += data.usdc
           if (data.eth) totalBalance += data.eth * 2500
-          if (data.sol) totalBalance += data.sol * 100
+          if (data.sol) totalBalance += data.sol * 200
           if (data.bnb) totalBalance += data.bnb * 600
         }
       }
