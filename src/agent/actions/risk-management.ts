@@ -124,7 +124,7 @@ function checkEmergencyConditions(
   risk: RiskContextState
 ): RiskAction | null {
   // Check for margin call risk
-  if (risk.metrics.marginRatio < 0.1) {
+  if ((risk.metrics.marginRatio ?? 1) < 0.1) {
     return {
       type: "liquidate",
       priority: "critical",

@@ -1,5 +1,4 @@
-import { createDreamsRouterAuth } from "@daydreamsai/router"
-import { getAccount } from "@daydreamsai/x402"
+import { createDreamsRouterAuth, getAccount } from "../types/daydreams.js"
 import config from "../config/index.js"
 import logger from "../utils/logger.js"
 

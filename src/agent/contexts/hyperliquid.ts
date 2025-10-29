@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 
@@ -61,7 +61,7 @@ export interface HyperliquidContextState {
 export const hyperliquidContext = context({
   type: "hyperliquid-trading",
   schema: hyperliquidContextSchema,
-  create: async (state): Promise<HyperliquidContextState> => {
+  create: async (state: any): Promise<HyperliquidContextState> => {
     logger.info(`Initializing Hyperliquid context for ${state.args.symbol}`)
 
     return {

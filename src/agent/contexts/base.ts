@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import { ethers } from "ethers"
 import axios from "axios"
@@ -55,7 +55,7 @@ export interface BaseContextState {
 export const baseContext = context({
   type: "base-trading",
   schema: baseContextSchema,
-  create: async (state): Promise<BaseContextState> => {
+  create: async (state: any): Promise<BaseContextState> => {
     logger.info(`Initializing Base context for ${state.args.symbol}`)
 
     return {

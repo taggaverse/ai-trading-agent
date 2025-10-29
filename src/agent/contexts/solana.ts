@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import { Connection, PublicKey, Keypair } from "@solana/web3.js"
 import axios from "axios"
@@ -57,7 +57,7 @@ export interface SolanaContextState {
 export const solanaContext = context({
   type: "solana-trading",
   schema: solanaContextSchema,
-  create: async (state): Promise<SolanaContextState> => {
+  create: async (state: any): Promise<SolanaContextState> => {
     logger.info(`Initializing Solana context for ${state.args.symbol}`)
 
     return {

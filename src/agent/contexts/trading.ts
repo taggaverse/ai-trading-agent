@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 import type { MarketContextState } from "./market.js"
@@ -73,7 +73,7 @@ export interface TradingContextState {
 export const tradingContext = context({
   type: "trading",
   schema: tradingContextSchema,
-  create: async (state): Promise<TradingContextState> => {
+  create: async (state: any): Promise<TradingContextState> => {
     logger.info(`Initializing trading context for ${state.args.accountId}`)
 
     return {
@@ -223,7 +223,7 @@ export function calculateRecommendedSize(state: TradingContextState): number {
 
   // Risk 1% of portfolio per trade
   const riskAmount = state.portfolio.balance * 0.01
-  const { availableMargin } = state.risk.metrics
+  const availableMargin = state.risk.metrics.availableMargin ?? state.portfolio.balance
 
   return Math.min(riskAmount, availableMargin)
 }

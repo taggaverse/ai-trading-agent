@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import axios from "axios"
 import logger from "../../utils/logger.js"
@@ -55,7 +55,7 @@ export interface ResearchContextState {
 export const researchContext = context({
   type: "research-trading",
   schema: researchContextSchema,
-  create: async (state): Promise<ResearchContextState> => {
+  create: async (state: any): Promise<ResearchContextState> => {
     logger.info(`Initializing research context for ${state.args.symbol}`)
     
     return {

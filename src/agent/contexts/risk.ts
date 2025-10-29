@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 import type { Position } from "./portfolio.js"
@@ -19,6 +19,8 @@ export interface RiskMetrics {
   correlationRisk: number
   venueConcentration: Record<string, number>
   chainConcentration: Record<string, number>
+  marginRatio?: number
+  availableMargin?: number
 }
 
 export interface RiskAlert {
@@ -59,7 +61,7 @@ const DEFAULT_LIMITS: RiskLimits = {
 export const riskContext = context({
   type: "risk-trading",
   schema: riskContextSchema,
-  create: async (state): Promise<RiskContextState> => {
+  create: async (state: any): Promise<RiskContextState> => {
     logger.info(`Initializing risk context for ${state.args.accountId}`)
     
     return {

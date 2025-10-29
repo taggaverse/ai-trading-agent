@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import { ethers } from "ethers"
 import axios from "axios"
@@ -55,7 +55,7 @@ export interface BSCContextState {
 export const bscContext = context({
   type: "bsc-trading",
   schema: bscContextSchema,
-  create: async (state): Promise<BSCContextState> => {
+  create: async (state: any): Promise<BSCContextState> => {
     logger.info(`Initializing BSC context for ${state.args.symbol}`)
 
     return {

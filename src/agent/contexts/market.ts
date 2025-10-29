@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 
@@ -151,7 +151,7 @@ export interface MarketContextState {
 export const marketContext = context({
   type: "market-trading",
   schema: marketContextSchema,
-  create: async (state): Promise<MarketContextState> => {
+  create: async (state: any): Promise<MarketContextState> => {
     logger.info(`Initializing market context for ${state.args.symbol} on ${state.args.chain}`)
     
     return {

@@ -1,4 +1,4 @@
-import { context } from "@daydreamsai/core"
+import { context } from "../../types/daydreams.js"
 import { z } from "zod"
 import logger from "../../utils/logger.js"
 
@@ -57,7 +57,7 @@ export interface PortfolioContextState {
 export const portfolioContext = context({
   type: "portfolio-trading",
   schema: portfolioContextSchema,
-  create: async (state): Promise<PortfolioContextState> => {
+  create: async (state: any): Promise<PortfolioContextState> => {
     logger.info(`Initializing portfolio context for ${state.args.accountId}`)
     
     return {
