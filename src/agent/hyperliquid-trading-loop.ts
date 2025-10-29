@@ -180,6 +180,7 @@ export class HyperliquidTradingLoop {
         }
         // Always record decision, even if execution failed
         this.state.decisions.push(decision)
+        logger.info(`   📝 Decision recorded: ${decision.asset} ${decision.action} (Total: ${this.state.decisions.length})`)
       }
 
       // Step 6: Update state
