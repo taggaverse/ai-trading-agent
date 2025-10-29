@@ -54,6 +54,7 @@ export default function PnLChart({ diary, portfolio, stats }) {
     // Initialize on first load - set initial balance to current balance
     if (!isInitialized && portfolio) {
       const balance = calculateTotalBalance(portfolio)
+      console.log('PnLChart: Initializing with balance:', balance)
       if (balance > 0) {
         setInitialBalance(balance)
         setCurrentValue(balance)
