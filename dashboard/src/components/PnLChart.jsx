@@ -20,6 +20,15 @@ export default function PnLChart({ diary, portfolio, stats }) {
       return totalBalance
     }
     
+    // Asset prices in USDC
+    const prices = {
+      'USDC': 1,
+      'ETH': 2500,
+      'SOL': 200,
+      'BNB': 600,
+      'BTC': 65000
+    }
+    
     Object.entries(portfolioData.balances).forEach(([chain, data]) => {
       if (data && typeof data === 'object') {
         // If it has a balance property (new structure)
@@ -28,25 +37,21 @@ export default function PnLChart({ diary, portfolio, stats }) {
           const gasToken = data.gasToken
           
           // Convert to USDC equivalent based on token type
-          if (gasToken === 'USDC') {
-            totalBalance += balance
-          } else if (gasToken === 'ETH') {
-            totalBalance += balance * 2500 // Approximate ETH price
-          } else if (gasToken === 'SOL') {
-            totalBalance += balance * 200 // Current SOL price ~$200
-          } else if (gasToken === 'BNB') {
-            totalBalance += balance * 600 // Approximate BNB price
-          }
+          const price = prices[gasToken] || 1
+          totalBalance += balance * price
+          
+          console.log(`[Portfolio] ${chain}: ${balance} ${gasToken} × $${price} = $${(balance * price).toFixed(2)}`)
         } else {
           // Old structure: check for specific tokens
           if (data.usdc) totalBalance += data.usdc
-          if (data.eth) totalBalance += data.eth * 2500
-          if (data.sol) totalBalance += data.sol * 200
-          if (data.bnb) totalBalance += data.bnb * 600
+          if (data.eth) totalBalance += data.eth * prices['ETH']
+          if (data.sol) totalBalance += data.sol * prices['SOL']
+          if (data.bnb) totalBalance += data.bnb * prices['BNB']
         }
       }
     })
     
+    console.log(`[Portfolio] Total Balance: $${totalBalance.toFixed(2)}`)
     return totalBalance
   }
 
