@@ -7,6 +7,7 @@ import logger from '../utils/logger.js'
 import axios from 'axios'
 import config from '../config/index.js'
 import { privateKeyToAccount } from 'viem/accounts'
+import { HyperliquidTradingClient } from './hyperliquid-trading-client.js'
 
 export interface HLPosition {
   asset: string
