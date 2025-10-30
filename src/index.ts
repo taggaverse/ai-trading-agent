@@ -19,6 +19,7 @@ import { HyperliquidAPI } from "./agent/hyperliquid-api.js"
 import { IndicatorsClient } from "./agent/indicators-client.js"
 import { HyperliquidTradingLoop } from "./agent/hyperliquid-trading-loop.js"
 import { X402PaymentManager } from "./agent/x402-payment-manager.js"
+import { AixbtcClient } from "./agent/aixbtc-client.js"
 
 const app = express()
 
@@ -274,6 +275,27 @@ async function main() {
       network: (config.HYPERLIQUID_NETWORK as 'mainnet' | 'testnet') || 'mainnet'
     })
     logger.info("✓ Hyperliquid extension initialized")
+
+    // Initialize aixbtc client for market insights
+    const aixbtcClient = new AixbtcClient()
+    logger.info("✓ aixbtc client initialized")
+
+    // Market insights endpoint (via x402)
+    app.get("/insights/:asset", async (req, res) => {
+      try {
+        const asset = req.params.asset.toUpperCase()
+        logger.info(`Fetching market insights for ${asset}...`)
+        
+        const insights = await aixbtcClient.getMarketInsights(asset)
+        res.json(insights)
+      } catch (error) {
+        logger.error("Failed to fetch insights:", error)
+        res.status(500).json({
+          error: "Failed to fetch market insights",
+          message: error instanceof Error ? error.message : "Unknown error"
+        })
+      }
+    })
 
     // Start API server
     app.listen(apiPort, apiHost, () => {

@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import DecisionDiary from './DecisionDiary'
 import './SidePanel.css'
 
 export default function SidePanel({ diary, portfolio, stats }) {
@@ -6,33 +7,7 @@ export default function SidePanel({ diary, portfolio, stats }) {
   const [sortBy, setSortBy] = useState('recent')
 
   const renderModelChat = () => {
-    if (!diary || diary.length === 0) {
-      return <div className="panel-empty">No model decisions yet</div>
-    }
-
-    return (
-      <div className="panel-content">
-        {diary.slice(-10).reverse().map((entry, idx) => (
-          <div key={idx} className="chat-entry">
-            <div className="entry-header">
-              <span className="entry-time">{new Date(entry.timestamp).toLocaleTimeString()}</span>
-              <span className={`entry-action ${entry.action?.toLowerCase()}`}>
-                {entry.action || 'HOLD'}
-              </span>
-            </div>
-            <div className="entry-asset">{entry.asset}</div>
-            <div className="entry-rationale">{entry.rationale}</div>
-            {entry.entryPrice && (
-              <div className="entry-prices">
-                <span>Entry: ${entry.entryPrice.toFixed(2)}</span>
-                <span>TP: ${entry.takeProfit?.toFixed(2)}</span>
-                <span>SL: ${entry.stopLoss?.toFixed(2)}</span>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-    )
+    return <DecisionDiary diary={diary} />
   }
 
   const renderPositions = () => {
