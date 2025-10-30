@@ -46,6 +46,7 @@ export class HyperliquidTradingLoop {
   private running: boolean = false
   private dreamsRouter: any
   private paymentManager?: X402PaymentManager
+  private dataLogger: TradingDataLogger
 
   constructor(
     hyperliquidAPI: HyperliquidAPI,
@@ -59,6 +60,7 @@ export class HyperliquidTradingLoop {
     this.config = config
     this.dreamsRouter = dreamsRouter
     this.paymentManager = paymentManager
+    this.dataLogger = new TradingDataLogger('./trading-logs')
     
     // Set payment manager on indicators client
     if (paymentManager) {
@@ -110,6 +112,18 @@ export class HyperliquidTradingLoop {
   stop(): void {
     this.running = false
     logger.info('Trading loop stopped')
+    
+    // Save and export logs
+    logger.info('Saving trading data...')
+    this.dataLogger.saveSession()
+    this.dataLogger.exportToCSV('./trading-data.csv')
+    
+    const report = this.dataLogger.generateReport()
+    logger.info('Trading Report:')
+    logger.info(`  Total Trades: ${report.totalTrades}`)
+    logger.info(`  Win Rate: ${report.winRate.toFixed(1)}%`)
+    logger.info(`  Average PnL: $${report.averagePnL.toFixed(2)}`)
+    logger.info(`  Logs saved to: ${this.dataLogger.getLogDirectory()}`)
   }
 
   /**
@@ -163,12 +177,19 @@ export class HyperliquidTradingLoop {
       logger.info('Step 3: Building LLM context...')
       const context = this.buildContext(portfolioState, indicators)
 
-      // Step 4: Call LLM with system prompt and performance history
+      // Step 4: Call LLM with system prompt
       logger.info('Step 4: Calling LLM for trading decisions via x402...')
-      logger.info(`   Win Rate: ${context.performance?.winRate || 'N/A'}%`)
-      logger.info(`   Recent Trades: ${context.performance?.recentTrades?.length || 0}`)
       let decisions: TradeDecision[] = []
+      let userPrompt = ''
       try {
+        const llmClient = new DreamsLLMClient()
+        userPrompt = llmClient.buildUserPrompt({
+          balance: context.account?.balance || 0,
+          positions: context.account?.positions || [],
+          indicators: context.marketData || {},
+          totalTrades: context.account?.totalTrades || 0,
+          totalPnL: context.account?.totalPnL || 0
+        })
         decisions = await this.callLLM(context)
         logger.info(`   ✓ Decisions received: ${decisions.length}`)
       } catch (llmError) {
@@ -177,13 +198,44 @@ export class HyperliquidTradingLoop {
         return // Skip this iteration if LLM fails
       }
 
-      // Step 5: Execute decisions
+      // Step 5: Execute decisions and log them
       logger.info(`Step 5: Executing trading decisions... (${decisions.length} decisions)`)
       if (!decisions || decisions.length === 0) {
         logger.warn('   ⚠️  No decisions to execute')
       }
       for (const decision of decisions) {
         try {
+          // Log decision before execution
+          this.dataLogger.logDecision({
+            timestamp: new Date().toISOString(),
+            iteration: this.state.iteration,
+            asset: decision.asset,
+            action: decision.action,
+            rationale: decision.rationale,
+            entryPrice: decision.entryPrice,
+            takeProfit: decision.takeProfit,
+            stopLoss: decision.stopLoss,
+            positionSize: decision.positionSize,
+            leverage: 1, // Default, can be enhanced
+            marketData: {
+              rsi5m: indicators[decision.asset]?.['5m']?.rsi,
+              rsi4h: indicators[decision.asset]?.['4h']?.rsi,
+              macd5m: indicators[decision.asset]?.['5m']?.macd,
+              macd4h: indicators[decision.asset]?.['4h']?.macd,
+              signal5m: indicators[decision.asset]?.['5m']?.signal,
+              signal4h: indicators[decision.asset]?.['4h']?.signal,
+              currentPrice: portfolioState.positions?.find((p: any) => p.asset === decision.asset)?.currentPrice
+            },
+            accountState: {
+              balance: portfolioState.balance,
+              totalTrades: this.state.totalTrades,
+              totalPnL: this.state.totalPnL,
+              openPositions: portfolioState.positions?.length || 0
+            },
+            systemPrompt: NOCTURNE_TRADING_SYSTEM_PROMPT,
+            userPrompt: userPrompt
+          })
+
           await this.executeDecision(decision, portfolioState)
           if (decision.action !== 'HOLD') {
             this.state.totalTrades++
