@@ -38,29 +38,36 @@ export interface AccountState {
 export class HyperliquidTradingClient {
   private walletAddress: string
   private baseUrl: string
+  private auth: HyperliquidAuth
 
   constructor() {
-    this.walletAddress = config.HYPERLIQUID_WALLET_ADDRESS || ''
+    this.auth = new HyperliquidAuth()
+    this.walletAddress = config.HYPERLIQUID_WALLET_ADDRESS || this.auth.getWalletAddress()
     this.baseUrl = config.HYPERLIQUID_TESTNET === 'true' 
       ? 'https://api.hyperliquid-testnet.exchange/api/v1'
       : 'https://api.hyperliquid.exchange/api/v1'
     logger.info(`[HL Trading] Initialized with wallet: ${this.walletAddress}`)
     logger.info(`[HL Trading] Base URL: ${this.baseUrl}`)
+    logger.info(`[HL Trading] Auth wallet: ${this.auth.getWalletAddress()}`)
   }
 
   /**
    * Get current account state (balance, positions, orders)
-   * Calls Hyperliquid Info API
+   * Calls Hyperliquid Info API with main account address (not agent wallet)
    */
   async getAccountState(): Promise<AccountState> {
     try {
       logger.info('[HL Trading] Fetching account state...')
       
+      // IMPORTANT: Use main account address, not agent wallet address
+      // Agent wallet is only for signing, not for querying account data
+      const queryAddress = this.walletAddress || this.auth.getWalletAddress()
+      
       // Call user_state endpoint
-      const response = await fetch(`${this.baseUrl}/userState`, {
+      const response = await fetch(`${this.baseUrl}/info`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user: this.walletAddress })
+        body: JSON.stringify({ type: 'clearinghouseState', user: queryAddress })
       })
 
       if (!response.ok) {
@@ -122,7 +129,7 @@ export class HyperliquidTradingClient {
 
   /**
    * Place a market order
-   * Uses Hyperliquid Exchange API
+   * Uses Hyperliquid Exchange API with real signing
    */
   async placeMarketOrder(
     asset: string,
@@ -132,25 +139,29 @@ export class HyperliquidTradingClient {
     try {
       logger.info(`[HL Trading] Placing market order: ${isBuy ? 'BUY' : 'SELL'} ${size} ${asset}`)
       
-      // Call market_open endpoint
-      const response = await fetch(`${this.baseUrl}/placeOrder`, {
+      // Get asset ID
+      const assetId = HyperliquidAuth.getAssetId(asset)
+      
+      // Create order request
+      const orderRequest = {
+        asset: assetId,
+        isBuy,
+        limitPx: '0', // Market order
+        sz: HyperliquidAuth.formatSize(size),
+        reduceOnly: false,
+        orderType: { limit: { tif: 'Ioc' as const } }
+      }
+      
+      // Sign the order
+      const signedOrder = await this.auth.signOrder([orderRequest])
+      
+      logger.info(`[HL Trading] Signed order with nonce ${signedOrder.nonce}`)
+      
+      // Send to Hyperliquid
+      const response = await fetch(`${this.baseUrl}/exchange`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: {
-            type: 'order',
-            orders: [{
-              coin: asset,
-              isBuy,
-              sz: size,
-              limitPx: 0, // Market order
-              orderType: { limit: { tif: 'Ioc' } },
-              cloid: null
-            }]
-          },
-          nonce: Date.now(),
-          signature: 'mock' // TODO: Implement real signing
-        })
+        body: JSON.stringify(signedOrder)
       })
 
       if (!response.ok) {
@@ -160,9 +171,33 @@ export class HyperliquidTradingClient {
       }
 
       const data = await response.json() as any
-      const orderId = data.response?.oid?.toString() || `${asset}-${Date.now()}`
       
-      logger.info(`[HL Trading] Order placed: ${orderId}`)
+      // Check for errors in response
+      if (data.status !== 'ok') {
+        logger.error(`[HL Trading] Order error: ${data.response}`)
+        return { success: false, error: data.response }
+      }
+      
+      // Extract order ID from response
+      const statuses = data.response?.data?.statuses || []
+      let orderId = ''
+      
+      if (statuses.length > 0) {
+        if (statuses[0].resting?.oid) {
+          orderId = statuses[0].resting.oid.toString()
+        } else if (statuses[0].filled?.oid) {
+          orderId = statuses[0].filled.oid.toString()
+        } else if (statuses[0].error) {
+          logger.error(`[HL Trading] Order error: ${statuses[0].error}`)
+          return { success: false, error: statuses[0].error }
+        }
+      }
+      
+      if (!orderId) {
+        orderId = `${asset}-${Date.now()}`
+      }
+      
+      logger.info(`[HL Trading] Order placed successfully: ${orderId}`)
       return { success: true, orderId }
     } catch (error) {
       logger.error('[HL Trading] Failed to place order:', error)

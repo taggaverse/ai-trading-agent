@@ -75,9 +75,6 @@ export class WalletManager {
   static getAllAddresses(): Record<string, string> {
     const addresses: Record<string, string> = {}
     
-    logger.info(`BASE_PRIVATE_KEY length: ${config.BASE_PRIVATE_KEY?.length || 0}`)
-    logger.info(`HYPERLIQUID_PRIVATE_KEY length: ${config.HYPERLIQUID_PRIVATE_KEY?.length || 0}`)
-    
     try {
       if (config.BASE_PRIVATE_KEY && config.BASE_PRIVATE_KEY !== "" && !config.BASE_PRIVATE_KEY.includes("...")) {
         addresses.base = this.getEthereumAddress(config.BASE_PRIVATE_KEY)

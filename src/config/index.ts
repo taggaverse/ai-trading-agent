@@ -15,10 +15,6 @@ function parseEnvFile(filePath: string): Record<string, string> {
     const content = fs.readFileSync(filePath, 'utf-8')
     const lines = content.split('\n')
     
-    console.log(`Reading file: ${filePath}`)
-    console.log(`File size: ${content.length} bytes`)
-    console.log(`First 200 chars: ${content.substring(0, 200)}`)
-    
     for (const line of lines) {
       const trimmed = line.trim()
       if (!trimmed || trimmed.startsWith('#')) continue
@@ -38,21 +34,14 @@ function parseEnvFile(filePath: string): Record<string, string> {
 
 // Load ONLY from .env, not .env.example
 const envPath = "/Users/alectaggart/CascadeProjects/windsurf-project/.env"
-console.log(`Attempting to load from: ${envPath}`)
-console.log(`File exists: ${fs.existsSync(envPath)}`)
 
 if (fs.existsSync(envPath)) {
   const envVars = parseEnvFile(envPath)
-  
-  console.log("Parsed keys:", Object.keys(envVars).slice(0, 10))
-  console.log("BASE_PRIVATE_KEY from file:", envVars.BASE_PRIVATE_KEY?.substring(0, 20))
-  console.log("SOLANA_PRIVATE_KEY from file:", envVars.SOLANA_PRIVATE_KEY?.substring(0, 20))
   
   // Merge into process.env - OVERWRITE existing values
   for (const [key, value] of Object.entries(envVars)) {
     process.env[key] = value
   }
-  console.log("Merged env vars into process.env")
 } else {
   console.error(`ERROR: .env file not found at ${envPath}`)
 }
