@@ -162,9 +162,16 @@ export class HyperliquidTradingLoop {
       const context = this.buildContext(portfolioState, indicators)
 
       // Step 4: Call LLM with system prompt
-      logger.info('Step 4: Calling LLM for trading decisions...')
-      const decisions = await this.callLLM(context)
-      logger.info(`   Decisions received: ${decisions.length}`)
+      logger.info('Step 4: Calling LLM for trading decisions via x402...')
+      let decisions: TradeDecision[] = []
+      try {
+        decisions = await this.callLLM(context)
+        logger.info(`   ✓ Decisions received: ${decisions.length}`)
+      } catch (llmError) {
+        logger.error('   ✗ LLM call failed, skipping this iteration:', llmError)
+        this.state.errors.push(`LLM error: ${llmError instanceof Error ? llmError.message : 'Unknown'}`)
+        return // Skip this iteration if LLM fails
+      }
 
       // Step 5: Execute decisions
       logger.info(`Step 5: Executing trading decisions... (${decisions.length} decisions)`)
@@ -238,12 +245,21 @@ export class HyperliquidTradingLoop {
         indicators: context.marketData || {}
       })
 
-      // Call LLM via x402
+      // Call LLM via x402 - NO FALLBACK, must succeed
+      logger.info('   [x402 LLM] Sending request to Dreams Router...')
       const llmDecisions = await llmClient.callLLM(
         HYPERLIQUID_TRADING_SYSTEM_PROMPT,
         userPrompt,
         0.1 // $0.10 USDC per call
       )
+
+      if (!llmDecisions || llmDecisions.length === 0) {
+        logger.warn('   ⚠️  LLM returned no decisions')
+        if (this.paymentManager) {
+          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, 'No decisions returned')
+        }
+        return []
+      }
 
       // Convert to TradeDecision format
       const decisions: TradeDecision[] = llmDecisions.map((d: any) => ({
@@ -266,12 +282,12 @@ export class HyperliquidTradingLoop {
 
       return decisions
     } catch (error) {
-      logger.error('   ✗ LLM call failed:', error)
+      logger.error('   ✗ LLM call failed - NO FALLBACK:', error)
       if (this.paymentManager) {
         this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Error: ${error instanceof Error ? error.message : 'Unknown'}`)
       }
-      // Fall back to mock decisions
-      return this.getMockDecisions(context)
+      // Throw error instead of falling back to mock
+      throw error
     }
   }
 
@@ -354,6 +370,19 @@ export class HyperliquidTradingLoop {
 
       if (result.success) {
         logger.info(`      ✓ Order executed: ${result.orderId}`)
+        
+        // Calculate and track PnL
+        if (decision.action === 'SELL' && existingPosition) {
+          // Calculate PnL on close
+          const entryPrice = existingPosition.entryPrice || decision.entryPrice || 0
+          const exitPrice = decision.entryPrice || 0
+          const pnl = (exitPrice - entryPrice) * (decision.positionSize || 0.01)
+          this.state.totalPnL += pnl
+          logger.info(`      💰 PnL: $${pnl.toFixed(2)} (Total: $${this.state.totalPnL.toFixed(2)})`)
+        } else if (decision.action === 'BUY') {
+          // For BUY, we'll calculate PnL when position is closed
+          logger.info(`      📊 Position opened at $${decision.entryPrice?.toFixed(2)}`)
+        }
       } else {
         logger.error(`      ✗ Order failed: ${result.error}`)
       }
