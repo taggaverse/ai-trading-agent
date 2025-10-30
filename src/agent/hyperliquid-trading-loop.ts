@@ -6,9 +6,10 @@
 import logger from '../utils/logger.js'
 import { HyperliquidAPI } from './hyperliquid-api.js'
 import { IndicatorsClient } from './indicators-client.js'
-import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './trading-system-prompt.js'
+import { NOCTURNE_TRADING_SYSTEM_PROMPT } from './nocturne-system-prompt.js'
 import { DreamsLLMClient } from './dreams-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
+import { MarketDataClient } from './market-data-client.js'
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
   assets: string[]
@@ -224,7 +225,7 @@ export class HyperliquidTradingLoop {
         maxPositionSize: this.config.maxPositionSize,
         maxLeverage: this.config.maxLeverage
       },
-      systemPrompt: HYPERLIQUID_TRADING_SYSTEM_PROMPT
+      systemPrompt: NOCTURNE_TRADING_SYSTEM_PROMPT
     }
   }
 
@@ -248,7 +249,7 @@ export class HyperliquidTradingLoop {
       // Call LLM via x402
       logger.info('   [Dreams LLM] Sending request with x402 payment...')
       const llmDecisions = await llmClient.callLLM(
-        HYPERLIQUID_TRADING_SYSTEM_PROMPT,
+        NOCTURNE_TRADING_SYSTEM_PROMPT,
         userPrompt
       )
 
