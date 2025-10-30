@@ -7,7 +7,7 @@ import logger from '../utils/logger.js'
 import { HyperliquidAPI } from './hyperliquid-api.js'
 import { IndicatorsClient } from './indicators-client.js'
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './trading-system-prompt.js'
-import { X402LLMClient } from './x402-llm-client.js'
+import { DreamsLLMClient } from './dreams-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
@@ -233,10 +233,10 @@ export class HyperliquidTradingLoop {
    */
   private async callLLM(context: Record<string, any>): Promise<TradeDecision[]> {
     try {
-      logger.info('   [x402 LLM] Calling Dreams Router with x402 payment...')
+      logger.info('   [Dreams LLM] Calling Dreams Router with x402 payment...')
 
-      // Initialize x402 LLM client
-      const llmClient = new X402LLMClient()
+      // Initialize Dreams LLM client
+      const llmClient = new DreamsLLMClient()
 
       // Build user prompt
       const userPrompt = llmClient.buildUserPrompt({
@@ -245,21 +245,12 @@ export class HyperliquidTradingLoop {
         indicators: context.marketData || {}
       })
 
-      // Call LLM via x402 - NO FALLBACK, must succeed
-      logger.info('   [x402 LLM] Sending request to Dreams Router...')
+      // Call LLM via x402
+      logger.info('   [Dreams LLM] Sending request with x402 payment...')
       const llmDecisions = await llmClient.callLLM(
         HYPERLIQUID_TRADING_SYSTEM_PROMPT,
-        userPrompt,
-        0.1 // $0.10 USDC per call
+        userPrompt
       )
-
-      if (!llmDecisions || llmDecisions.length === 0) {
-        logger.warn('   ⚠️  LLM returned no decisions')
-        if (this.paymentManager) {
-          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, 'No decisions returned')
-        }
-        return []
-      }
 
       // Convert to TradeDecision format
       const decisions: TradeDecision[] = llmDecisions.map((d: any) => ({
@@ -274,6 +265,7 @@ export class HyperliquidTradingLoop {
       }))
 
       logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
+      logger.info(`   ✓ USDC spent: $${llmClient.getCostPerCall()}`)
       
       // Record successful LLM call
       if (this.paymentManager) {
@@ -282,7 +274,7 @@ export class HyperliquidTradingLoop {
 
       return decisions
     } catch (error) {
-      logger.error('   ✗ LLM call failed - NO FALLBACK:', error)
+      logger.error('   ✗ LLM call failed:', error)
       if (this.paymentManager) {
         this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Error: ${error instanceof Error ? error.message : 'Unknown'}`)
       }

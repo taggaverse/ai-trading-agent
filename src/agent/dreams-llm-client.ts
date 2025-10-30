@@ -1,12 +1,11 @@
 /**
- * x402 LLM Client
- * Uses Dreams Router with x402 payments for LLM calls
+ * Dreams Router LLM Client
+ * Calls Dreams Router API with x402 payments
  */
 
 import logger from '../utils/logger.js'
 import axios from 'axios'
-import { privateKeyToAccount, signMessage } from 'viem/accounts'
-import { toHex } from 'viem'
+import { X402PaymentClient } from './x402-payment-client.js'
 import config from '../config/index.js'
 
 export interface TradeDecision {
@@ -20,20 +19,15 @@ export interface TradeDecision {
   exitPlan?: string
 }
 
-export class X402LLMClient {
+export class DreamsLLMClient {
+  private paymentClient: X402PaymentClient
   private routerUrl: string
-  private account: any
-  private network: string
+  private costPerCall: number = 0.1 // $0.10 USDC per LLM call
 
   constructor() {
+    this.paymentClient = new X402PaymentClient()
     this.routerUrl = config.DREAMS_ROUTER_URL || 'https://router.daydreams.systems'
-    this.network = config.X402_NETWORK || 'base-sepolia'
-
-    // Initialize account from private key
-    const privateKey = config.X402_PRIVATE_KEY as `0x${string}`
-    this.account = privateKeyToAccount(privateKey)
-
-    logger.info(`[x402 LLM] Initialized with account: ${this.account.address}`)
+    logger.info(`[Dreams LLM] Initialized with router: ${this.routerUrl}`)
   }
 
   /**
@@ -41,15 +35,24 @@ export class X402LLMClient {
    */
   async callLLM(
     systemPrompt: string,
-    userPrompt: string,
-    amountUsdc: number = 0.1 // $0.10 default
+    userPrompt: string
   ): Promise<TradeDecision[]> {
     try {
-      logger.info(`[x402 LLM] Calling Dreams Router (${amountUsdc} USDC)...`)
+      logger.info(`[Dreams LLM] Calling Dreams Router with x402 payment ($${this.costPerCall})...`)
 
-      // Call Dreams Router - using public endpoint for now
-      logger.info(`[x402 LLM] Sending request to ${this.routerUrl}/v1/chat/completions`)
+      // Check balance before calling
+      const hasBalance = await this.paymentClient.hasSufficientBalance(this.costPerCall)
+      if (!hasBalance) {
+        logger.error(`[Dreams LLM] Insufficient USDC balance for LLM call`)
+        throw new Error('Insufficient USDC balance')
+      }
 
+      // Generate x402 payment header
+      logger.info('[Dreams LLM] Generating x402 payment header...')
+      const paymentHeader = await this.paymentClient.generatePaymentHeader(this.costPerCall)
+
+      // Call Dreams Router
+      logger.info('[Dreams LLM] Sending request to Dreams Router...')
       const response = await axios.post(
         `${this.routerUrl}/v1/chat/completions`,
         {
@@ -70,26 +73,31 @@ export class X402LLMClient {
         {
           headers: {
             'Content-Type': 'application/json',
-            'User-Agent': 'Hyperliquid-Trading-Agent/1.0'
+            'X-Payment': paymentHeader
           },
           timeout: 60000
         }
       )
 
+      logger.info('[Dreams LLM] Response received from Dreams Router')
+
       // Parse response
-      const content = response.data.choices[0]?.message?.content
+      const content = response.data.choices?.[0]?.message?.content
       if (!content) {
-        logger.warn('[x402 LLM] Empty response from Dreams Router')
+        logger.warn('[Dreams LLM] Empty response from Dreams Router')
         return []
       }
 
+      // Parse JSON response
       const parsed = JSON.parse(content)
       const decisions = parsed.decisions || []
 
-      logger.info(`[x402 LLM] Parsed ${decisions.length} decisions`)
+      logger.info(`[Dreams LLM] Parsed ${decisions.length} trading decisions`)
+      logger.info(`[Dreams LLM] USDC spent: $${this.costPerCall}`)
+
       return decisions
     } catch (error) {
-      logger.error('[x402 LLM] Failed to call Dreams Router:', error)
+      logger.error('[Dreams LLM] Failed to call Dreams Router:', error)
       throw error
     }
   }
@@ -140,9 +148,16 @@ Only include decisions for assets with clear signals. Prioritize capital preserv
   }
 
   /**
-   * Get account address
+   * Get payment client for balance checking
    */
-  getAddress(): string {
-    return this.account.address
+  getPaymentClient(): X402PaymentClient {
+    return this.paymentClient
+  }
+
+  /**
+   * Get cost per call
+   */
+  getCostPerCall(): number {
+    return this.costPerCall
   }
 }
