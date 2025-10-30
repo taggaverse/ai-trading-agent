@@ -6,7 +6,7 @@
 
 import logger from '../utils/logger.js'
 import { privateKeyToAccount, signMessage } from 'viem/accounts'
-import { createPublicClient, createWalletClient, http } from 'viem'
+import { createPublicClient, createWalletClient, http, getAddress } from 'viem'
 import { base } from 'viem/chains'
 import config from '../config/index.js'
 
@@ -41,6 +41,8 @@ export class X402PaymentClient {
   private account: any
   private publicClient: any
   private network: 'base' | 'base-sepolia'
+  private balanceCache: { value: number; timestamp: number } | null = null
+  private readonly CACHE_TTL = 60000 // 60 seconds
 
   constructor() {
     this.network = (config.X402_NETWORK as 'base' | 'base-sepolia') || 'base'
@@ -86,12 +88,49 @@ export class X402PaymentClient {
   }
 
   /**
-   * Get wallet USDC balance from Base chain
+   * Get wallet USDC balance from Base chain with caching and fallback
    */
   async getUSDCBalance(): Promise<number> {
     try {
+      const now = Date.now()
+      
+      // Return cached balance if fresh
+      if (this.balanceCache && now - this.balanceCache.timestamp < this.CACHE_TTL) {
+        logger.info(`[x402] USDC Balance (cached): $${this.balanceCache.value.toFixed(2)}`)
+        return this.balanceCache.value
+      }
+
+      // Try RPC call first (primary method)
+      try {
+        const balance = await this.fetchBalanceFromRPC()
+        this.balanceCache = { value: balance, timestamp: now }
+        logger.info(`[x402] USDC Balance (RPC): $${balance.toFixed(2)}`)
+        return balance
+      } catch (rpcError) {
+        logger.warn('[x402] RPC call failed, trying Etherscan fallback...')
+        
+        // Fallback to Etherscan API
+        const balance = await this.fetchBalanceFromEtherscan()
+        this.balanceCache = { value: balance, timestamp: now }
+        logger.info(`[x402] USDC Balance (Etherscan): $${balance.toFixed(2)}`)
+        return balance
+      }
+    } catch (error) {
+      logger.error('[x402] Failed to get USDC balance:', error)
+      // Return 0 on error - don't allow trading without verified balance
+      return 0
+    }
+  }
+
+  /**
+   * Fetch USDC balance from RPC (primary method)
+   */
+  private async fetchBalanceFromRPC(): Promise<number> {
+    try {
       // USDC on Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48
-      const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48' as `0x${string}`
+      // Use getAddress to normalize and validate checksums
+      const USDC_ADDRESS = getAddress('0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48')
+      const walletAddress = getAddress(this.account.address)
       
       // Standard ERC20 ABI for balanceOf
       const abi = [
@@ -108,16 +147,42 @@ export class X402PaymentClient {
         address: USDC_ADDRESS,
         abi,
         functionName: 'balanceOf',
-        args: [this.account.address as `0x${string}`]
+        args: [walletAddress]
       })
 
-      const balanceUsdc = Number(balance) / 1_000_000 // Convert from 6 decimals
-      logger.info(`[x402] USDC Balance: $${balanceUsdc.toFixed(2)}`)
-      return balanceUsdc
+      return Number(balance) / 1_000_000 // Convert from 6 decimals
     } catch (error) {
-      logger.error('[x402] Failed to get USDC balance:', error)
-      // Return 0 on error - don't allow trading without verified balance
-      return 0
+      throw new Error(`RPC fetch failed: ${error}`)
+    }
+  }
+
+  /**
+   * Fetch USDC balance from Etherscan API (fallback method)
+   */
+  private async fetchBalanceFromEtherscan(): Promise<number> {
+    try {
+      const BASESCAN_API_KEY = (config as any).BASESCAN_API_KEY
+      if (!BASESCAN_API_KEY) {
+        throw new Error('BASESCAN_API_KEY not configured')
+      }
+
+      const response = await fetch(
+        `https://api.basescan.org/api?module=account&action=tokenbalance&contractaddress=0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48&address=${this.account.address}&tag=latest&apikey=${BASESCAN_API_KEY}`
+      )
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`)
+      }
+
+      const data = await response.json() as any
+      
+      if (data.status !== '1') {
+        throw new Error(`Etherscan error: ${data.message}`)
+      }
+
+      return Number(data.result) / 1_000_000 // Convert from 6 decimals
+    } catch (error) {
+      throw new Error(`Etherscan fetch failed: ${error}`)
     }
   }
 
