@@ -6,8 +6,8 @@
 import logger from '../utils/logger.js'
 import { HyperliquidAPI } from './hyperliquid-api.js'
 import { IndicatorsClient } from './indicators-client.js'
-import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './hyperliquid-system-prompt.js'
-import { selectModel } from './router.js'
+import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from './trading-system-prompt.js'
+import { X402LLMClient } from './x402-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
@@ -226,122 +226,42 @@ export class HyperliquidTradingLoop {
    */
   private async callLLM(context: Record<string, any>): Promise<TradeDecision[]> {
     try {
-      logger.info('   [LLM] Calling Dreams Router for trading decisions...')
+      logger.info('   [x402 LLM] Calling Dreams Router with x402 payment...')
 
-      // Check balance before calling LLM
-      if (this.paymentManager) {
-        const hasFunds = await this.paymentManager.hasSufficientBalance(X402_COSTS.LLM_CALL)
-        if (!hasFunds) {
-          logger.warn(`⚠️  Insufficient x402 balance for LLM call, using mock decisions`)
-          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Insufficient balance')
-          return this.getMockDecisions(context)
-        }
-      }
+      // Initialize x402 LLM client
+      const llmClient = new X402LLMClient()
 
-      // If no dreams router available, use mock
-      if (!this.dreamsRouter) {
-        logger.info('   [Mock LLM] Dreams Router not available, using mock decisions')
-        if (this.paymentManager) {
-          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Router unavailable')
-        }
-        return this.getMockDecisions(context)
-      }
+      // Build user prompt
+      const userPrompt = llmClient.buildUserPrompt({
+        balance: context.account?.balance || 0,
+        positions: context.account?.positions || [],
+        indicators: context.marketData || {}
+      })
 
-      // Get the model name (x402 pricing: medium = GPT-4o at $0.10 per request)
-      const modelName = selectModel('medium') // GPT-4o for best quality
+      // Call LLM via x402
+      const llmDecisions = await llmClient.callLLM(
+        HYPERLIQUID_TRADING_SYSTEM_PROMPT,
+        userPrompt,
+        0.1 // $0.10 USDC per call
+      )
 
-      // Build the prompt
-      const userPrompt = `You are a professional quantitative trader. Analyze the following market context and provide trading decisions.
+      // Convert to TradeDecision format
+      const decisions: TradeDecision[] = llmDecisions.map((d: any) => ({
+        asset: d.asset,
+        action: d.action,
+        rationale: d.rationale,
+        entryPrice: d.entryPrice,
+        takeProfit: d.takeProfit,
+        stopLoss: d.stopLoss,
+        positionSize: d.positionSize || this.config.maxPositionSize,
+        exitPlan: d.exitPlan
+      }))
 
-Market Context:
-${JSON.stringify(context, null, 2)}
-
-Respond with a JSON array of trading decisions. Each decision must have:
-- asset: string (e.g., "BTC", "ETH")
-- action: "BUY" | "SELL" | "HOLD"
-- rationale: string (brief explanation)
-- entryPrice: number (if BUY/SELL)
-- takeProfit: number (if BUY/SELL)
-- stopLoss: number (if BUY/SELL)
-- positionSize: number (as decimal, e.g., 0.05 for 5%)
-- exitPlan: string (conditions to close)
-
-Return ONLY valid JSON array, no other text.`
-
-      // Call the LLM via Dreams Router
-      // dreamsRouter(modelName) returns a model compatible with OpenAI SDK
-      const model = this.dreamsRouter(modelName)
-
-      // Call the model with OpenAI-compatible format
-      let response: any
+      logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
       
-      try {
-        // Try calling as a function first (if it's a callable model)
-        if (typeof model === 'function') {
-          response = await model({
-            system: HYPERLIQUID_TRADING_SYSTEM_PROMPT,
-            messages: [
-              {
-                role: 'user',
-                content: userPrompt
-              }
-            ]
-          })
-        } else if (model && typeof model.call === 'function') {
-          // Try .call method
-          response = await model.call({
-            system: HYPERLIQUID_TRADING_SYSTEM_PROMPT,
-            messages: [
-              {
-                role: 'user',
-                content: userPrompt
-              }
-            ]
-          })
-        } else {
-          // Fallback to mock if model is not callable
-          logger.warn('   ✗ Model is not callable, using mock decisions')
-          if (this.paymentManager) {
-            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'Model not callable')
-          }
-          return this.getMockDecisions(context)
-        }
-      } catch (callError) {
-        logger.error('   ✗ Failed to call model:', callError)
-        if (this.paymentManager) {
-          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Call error: ${callError instanceof Error ? callError.message : 'Unknown'}`)
-        }
-        return this.getMockDecisions(context)
-      }
-
-      // Parse the response
-      let decisions: TradeDecision[] = []
-      try {
-        // Handle different response formats
-        const content = typeof response === 'string' ? response : response.content || response.text || response || ''
-        
-        // Extract JSON from response
-        const jsonMatch = content.match(/\[[\s\S]*\]/)
-        if (jsonMatch) {
-          decisions = JSON.parse(jsonMatch[0])
-          logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
-          // Record successful LLM call
-          if (this.paymentManager) {
-            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, `Generated ${decisions.length} decisions`)
-          }
-        } else {
-          logger.warn('   ✗ No JSON array found in LLM response')
-          if (this.paymentManager) {
-            this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, 'No JSON in response')
-          }
-          decisions = this.getMockDecisions(context)
-        }
-      } catch (parseError) {
-        logger.error('   ✗ Failed to parse LLM response:', parseError)
-        if (this.paymentManager) {
-          this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Parse error: ${parseError instanceof Error ? parseError.message : 'Unknown'}`)
-        }
-        decisions = this.getMockDecisions(context)
+      // Record successful LLM call
+      if (this.paymentManager) {
+        this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, `Generated ${decisions.length} decisions`)
       }
 
       return decisions
