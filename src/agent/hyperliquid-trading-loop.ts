@@ -162,8 +162,10 @@ export class HyperliquidTradingLoop {
       logger.info('Step 3: Building LLM context...')
       const context = this.buildContext(portfolioState, indicators)
 
-      // Step 4: Call LLM with system prompt
+      // Step 4: Call LLM with system prompt and performance history
       logger.info('Step 4: Calling LLM for trading decisions via x402...')
+      logger.info(`   Win Rate: ${context.performance?.winRate || 'N/A'}%`)
+      logger.info(`   Recent Trades: ${context.performance?.recentTrades?.length || 0}`)
       let decisions: TradeDecision[] = []
       try {
         decisions = await this.callLLM(context)
@@ -204,12 +206,37 @@ export class HyperliquidTradingLoop {
   }
 
   /**
-   * Build context payload for LLM
+   * Build context payload for LLM with historical learning data
    */
   private buildContext(
     portfolioState: any,
     indicators: Record<string, any>
   ): Record<string, any> {
+    // Calculate performance metrics
+    const recentDecisions = this.state.decisions.slice(-10) // Last 10 trades
+    const winningTrades = recentDecisions.filter(d => d.action !== 'HOLD' && (d as any).pnl > 0)
+    const losingTrades = recentDecisions.filter(d => d.action !== 'HOLD' && (d as any).pnl < 0)
+    const winRate = recentDecisions.length > 0 ? (winningTrades.length / recentDecisions.filter(d => d.action !== 'HOLD').length) * 100 : 0
+    
+    // Per-asset performance
+    const assetPerformance: Record<string, { wins: number; losses: number; totalPnL: number }> = {}
+    for (const asset of this.config.assets) {
+      const assetTrades = recentDecisions.filter(d => d.asset === asset && d.action !== 'HOLD')
+      assetPerformance[asset] = {
+        wins: assetTrades.filter(t => (t as any).pnl > 0).length,
+        losses: assetTrades.filter(t => (t as any).pnl < 0).length,
+        totalPnL: assetTrades.reduce((sum, t) => sum + ((t as any).pnl || 0), 0)
+      }
+    }
+
+    // Recent trade outcomes
+    const recentOutcomes = recentDecisions.slice(-5).map(d => ({
+      asset: d.asset,
+      action: d.action,
+      pnl: (d as any).pnl || 0,
+      rationale: d.rationale
+    }))
+
     return {
       timestamp: new Date().toISOString(),
       iteration: this.state.iteration,
@@ -218,6 +245,14 @@ export class HyperliquidTradingLoop {
         positions: portfolioState.positions,
         totalTrades: this.state.totalTrades,
         totalPnL: this.state.totalPnL
+      },
+      performance: {
+        winRate: winRate.toFixed(1),
+        winCount: winningTrades.length,
+        lossCount: losingTrades.length,
+        recentTrades: recentOutcomes,
+        assetPerformance: assetPerformance,
+        recentDecisions: recentDecisions
       },
       marketData: indicators,
       config: {
@@ -239,11 +274,14 @@ export class HyperliquidTradingLoop {
       // Initialize Dreams LLM client
       const llmClient = new DreamsLLMClient()
 
-      // Build user prompt
+      // Build user prompt with full context including performance history
       const userPrompt = llmClient.buildUserPrompt({
         balance: context.account?.balance || 0,
         positions: context.account?.positions || [],
-        indicators: context.marketData || {}
+        indicators: context.marketData || {},
+        totalTrades: context.account?.totalTrades || 0,
+        totalPnL: context.account?.totalPnL || 0,
+        performance: context.performance || {}
       })
 
       // Call LLM via x402

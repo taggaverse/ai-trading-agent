@@ -103,7 +103,7 @@ export class DreamsLLMClient {
   }
 
   /**
-   * Build user prompt for trading decisions
+   * Build user prompt for trading decisions with performance history
    */
   buildUserPrompt(context: any): string {
     const positions = context.positions
@@ -118,22 +118,59 @@ export class DreamsLLMClient {
       })
       .join('\n')
 
+    // Build performance history section
+    const performance = context.performance || {}
+    const assetPerf = Object.entries(performance.assetPerformance || {})
+      .map(([asset, data]: [string, any]) => {
+        const winRate = data.wins + data.losses > 0 ? ((data.wins / (data.wins + data.losses)) * 100).toFixed(0) : 'N/A'
+        return `${asset}: ${data.wins}W/${data.losses}L (${winRate}% win rate, PnL: $${data.totalPnL.toFixed(2)})`
+      })
+      .join('\n')
+
+    const recentTrades = (performance.recentTrades || [])
+      .map((t: any) => `${t.asset} ${t.action}: $${t.pnl.toFixed(2)} - ${t.rationale}`)
+      .join('\n')
+
     return `
-Current Portfolio State:
+## CURRENT STATE
+
+Portfolio:
 - Balance: $${context.balance.toFixed(2)}
+- Total Trades: ${context.totalTrades || 0}
+- Total PnL: $${context.totalPnL?.toFixed(2) || '0.00'}
 - Positions:
 ${positions || 'None'}
+
+## YOUR PERFORMANCE (Learn from this!)
+
+Overall Win Rate: ${performance.winRate || 'N/A'}% (${performance.winCount || 0}W / ${performance.lossCount || 0}L)
+
+Per-Asset Performance:
+${assetPerf || 'No history yet'}
+
+Recent Trades (Last 5):
+${recentTrades || 'No trades yet'}
+
+## MARKET DATA
 
 Technical Indicators (5m):
 ${indicators || 'None'}
 
-Based on this data, provide trading decisions in JSON format:
+## INSTRUCTIONS
+
+Based on your performance history and current market data:
+1. If win rate < 50%: Be more selective, wait for stronger signals
+2. If recent losses: Reduce position size, increase stop loss
+3. If specific asset underperforms: Avoid or reduce exposure
+4. If specific asset outperforms: Consider increasing allocation
+
+Provide trading decisions in JSON format:
 {
   "decisions": [
     {
       "asset": "BTC",
       "action": "BUY|SELL|HOLD",
-      "rationale": "explanation",
+      "rationale": "explanation (reference your performance if relevant)",
       "entryPrice": optional_number,
       "takeProfit": optional_number,
       "stopLoss": optional_number,
