@@ -137,4 +137,48 @@ export class HyperliquidAPI {
       return 0
     }
   }
+
+  /**
+   * Get user state (alias for getAccountState for compatibility)
+   */
+  async getUserState(): Promise<HLAccountState> {
+    return this.getAccountState()
+  }
+
+  /**
+   * Place an order (stub - requires wallet signing)
+   */
+  async placeOrder(asset: string, isBuy: boolean, size: number, price?: number): Promise<any> {
+    logger.warn(`[HL API] placeOrder called but not yet implemented for ${asset}`)
+    return { success: false, error: 'Not implemented' }
+  }
+
+  /**
+   * Close a position (stub - requires wallet signing)
+   */
+  async closePosition(asset: string): Promise<any> {
+    logger.warn(`[HL API] closePosition called but not yet implemented for ${asset}`)
+    return { success: false, error: 'Not implemented' }
+  }
+
+  /**
+   * Get current price for an asset
+   */
+  async getCurrentPrice(asset: string): Promise<number> {
+    try {
+      const response = await axios.post(
+        `${this.apiUrl}/info`,
+        {
+          type: 'lastPrice',
+          coin: asset
+        },
+        { timeout: 10000 }
+      )
+
+      return response.data?.price || 0
+    } catch (error) {
+      logger.error(`[HL API] Failed to fetch price for ${asset}:`, error)
+      return 0
+    }
+  }
 }

@@ -62,27 +62,23 @@ if (fs.existsSync(envPath)) {
 console.log("=== Environment Variables Loaded ===")
 console.log(`BASE_PRIVATE_KEY: ${process.env.BASE_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.BASE_PRIVATE_KEY?.substring(0, 10)}`)
 console.log(`SOLANA_PRIVATE_KEY: ${process.env.SOLANA_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.SOLANA_PRIVATE_KEY?.substring(0, 10)}`)
-console.log(`BSC_PRIVATE_KEY: ${process.env.BSC_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.BSC_PRIVATE_KEY?.substring(0, 10)}`)
 console.log(`HYPERLIQUID_PRIVATE_KEY: ${process.env.HYPERLIQUID_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.HYPERLIQUID_PRIVATE_KEY?.substring(0, 10)}`)
 console.log(`X402_WALLET_ADDRESS: ${process.env.X402_WALLET_ADDRESS?.length || 0} chars`)
 
 // Configuration schema
 const configSchema = z.object({
-  // Base
+  // Base Chain
   BASE_RPC_URL: z.string().default("https://mainnet.base.org"),
   BASE_PRIVATE_KEY: z.string(),
-  // Solana
-  SOLANA_Private_KEY: z.string(),
-  SOLANA_WALLET_ADDRESS: z.string(),
-  SOLANA_TESTNET: z.string().default("false"),
-  SOLANA_NETWORK: z.string().default("mainnet"),
-  SOLANA_MAX_LEVERAGE: z.string().default("20"),
+  
+  // Hyperliquid
+  HYPERLIQUID_PRIVATE_KEY: z.string(),
+  HYPERLIQUID_WALLET_ADDRESS: z.string(),
+  HYPERLIQUID_TESTNET: z.string().default("false"),
+  HYPERLIQUID_NETWORK: z.string().default("mainnet"),
   
   // Technical Indicators
   TAAPI_API_KEY: z.string().optional(),
-  
-  BSC_RPC_URL: z.string().default("https://bsc-dataseed.binance.org"),
-  BSC_PRIVATE_KEY: z.string(),
   
   // Dreams Router & x402
   DREAMS_ROUTER_URL: z.string().default("https://router.daydreams.systems"),
@@ -96,9 +92,10 @@ const configSchema = z.object({
   REFILL_AMOUNT_USDC: z.string().default("10.0"),
   
   // Trading
-  ACTIVE_CHAINS: z.string().default("base,solana,hyperliquid,bsc"),
-  PRIMARY_CHAIN: z.string().default("hyperliquid"),
   TRADING_INTERVAL_MS: z.string().default("60000"),
+  TRADING_ASSETS: z.string().default("BTC,ETH"),
+  MAX_POSITION_SIZE: z.string().default("0.05"),
+  MAX_LEVERAGE: z.string().default("5"),
   
   // Logging
   LOG_LEVEL: z.string().default("info"),
@@ -119,8 +116,8 @@ try {
 
 export default config
 
-export const chains = config.ACTIVE_CHAINS.split(",").map(c => c.trim())
-export const primaryChain = config.PRIMARY_CHAIN
+export const chains = ['base', 'hyperliquid']
+export const primaryChain = 'hyperliquid'
 export const tradingInterval = parseInt(config.TRADING_INTERVAL_MS)
 export const logLevel = config.LOG_LEVEL as "debug" | "info" | "warn" | "error"
 export const apiPort = parseInt(config.API_PORT)

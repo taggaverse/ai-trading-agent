@@ -15,7 +15,7 @@ import { WalletManager } from "./agent/wallet-info.js"
 import { BridgeManager } from "./agent/bridge-manager.js"
 import { hyperliquidExtension } from "./extensions/hyperliquid-extension.js"
 import { HYPERLIQUID_TRADING_SYSTEM_PROMPT } from "./agent/hyperliquid-system-prompt.js"
-import { HyperliquidAPI } from "./agent/hyperliquid-client.js"
+import { HyperliquidAPI } from "./agent/hyperliquid-api.js"
 import { IndicatorsClient } from "./agent/indicators-client.js"
 import { HyperliquidTradingLoop } from "./agent/hyperliquid-trading-loop.js"
 import { X402PaymentManager } from "./agent/x402-payment-manager.js"
@@ -105,7 +105,7 @@ app.get("/portfolio", async (req, res) => {
 app.get("/chains", (req, res) => {
   res.json({
     active: chains,
-    primary: config.PRIMARY_CHAIN,
+    primary: 'hyperliquid',
     timestamp: new Date().toISOString(),
   })
 })
@@ -246,7 +246,7 @@ async function main() {
   try {
     logger.info("🚀 Starting AI Trading Agent...")
     logger.info(`Active chains: ${chains.join(", ")}`)
-    logger.info(`Primary chain: ${config.PRIMARY_CHAIN}`)
+    logger.info(`Primary chain: hyperliquid`)
 
     // Initialize Dreams Router
     const { dreamsRouter, account } = await initializeDreamsRouter()
@@ -264,10 +264,7 @@ async function main() {
 
     // Initialize Hyperliquid API clients
     logger.info("Initializing Hyperliquid API clients...")
-    const hyperliquidAPI = new HyperliquidAPI(
-      config.HYPERLIQUID_PRIVATE_KEY,
-      (config.HYPERLIQUID_NETWORK as 'mainnet' | 'testnet') || 'mainnet'
-    )
+    const hyperliquidAPI = new HyperliquidAPI()
     logger.info("✓ HyperliquidAPI initialized")
 
     const indicatorsClient = new IndicatorsClient(config.TAAPI_API_KEY || 'mock-key')

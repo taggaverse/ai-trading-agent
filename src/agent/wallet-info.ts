@@ -76,8 +76,6 @@ export class WalletManager {
     const addresses: Record<string, string> = {}
     
     logger.info(`BASE_PRIVATE_KEY length: ${config.BASE_PRIVATE_KEY?.length || 0}`)
-    logger.info(`SOLANA_PRIVATE_KEY length: ${config.SOLANA_PRIVATE_KEY?.length || 0}`)
-    logger.info(`BSC_PRIVATE_KEY length: ${config.BSC_PRIVATE_KEY?.length || 0}`)
     logger.info(`HYPERLIQUID_PRIVATE_KEY length: ${config.HYPERLIQUID_PRIVATE_KEY?.length || 0}`)
     
     try {
@@ -88,22 +86,6 @@ export class WalletManager {
       }
     } catch (e) {
       logger.warn("Failed to derive Base address")
-    }
-    
-    try {
-      if (config.SOLANA_PRIVATE_KEY && config.SOLANA_PRIVATE_KEY !== "") {
-        addresses.solana = this.getSolanaAddress(config.SOLANA_PRIVATE_KEY)
-      }
-    } catch (e) {
-      logger.warn("Failed to derive Solana address")
-    }
-    
-    try {
-      if (config.BSC_PRIVATE_KEY && config.BSC_PRIVATE_KEY !== "") {
-        addresses.bsc = this.getEthereumAddress(config.BSC_PRIVATE_KEY)
-      }
-    } catch (e) {
-      logger.warn("Failed to derive BSC address")
     }
     
     try {
