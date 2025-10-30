@@ -105,6 +105,15 @@
   color: #d1d5db;
 }
 
+.entry-confidence {
+  font-size: 11px;
+  color: #94a3b8;
+  background: rgba(59, 130, 246, 0.1);
+  padding: 2px 6px;
+  border-radius: 3px;
+  margin-left: 8px;
+}
+
 .expand-icon {
   color: #64748b;
   font-size: 12px;
@@ -284,6 +293,64 @@
   margin: 0;
   font-size: 12px;
   color: #ef4444;
+}
+
+.indicators-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.indicator-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 6px;
+}
+
+.indicator-item .label {
+  font-size: 11px;
+  color: #94a3b8;
+  text-transform: uppercase;
+}
+
+.indicator-item .value {
+  font-size: 12px;
+  font-weight: 600;
+  color: #e2e8f0;
+}
+
+.rsi-oversold {
+  color: #22c55e;
+}
+
+.rsi-overbought {
+  color: #ef4444;
+}
+
+.rsi-normal {
+  color: #3b82f6;
+}
+
+.bullish {
+  color: #22c55e;
+}
+
+.bearish {
+  color: #ef4444;
+}
+
+.funding-rate {
+  margin: 0;
+  font-size: 12px;
+  color: #cbd5e1;
+  padding: 8px;
+  background: rgba(59, 130, 246, 0.05);
+  border-left: 2px solid rgba(59, 130, 246, 0.4);
+  border-radius: 4px;
 }
 
 .panel-empty {

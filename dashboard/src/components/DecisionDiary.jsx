@@ -31,7 +31,7 @@ export default function DecisionDiary({ diary }) {
   return (
     <div className="decision-diary">
       <div className="diary-header">
-        <h3>🤖 Dreams Router Decisions</h3>
+        <h3>🤖 Nocturne Trading Decisions</h3>
         <span className="decision-count">{diary.length} decisions</span>
       </div>
 
@@ -50,6 +50,11 @@ export default function DecisionDiary({ diary }) {
                 <span className={`entry-action ${entry.action?.toLowerCase()}`}>
                   {entry.action || 'HOLD'}
                 </span>
+                {entry.confidence && (
+                  <span className="entry-confidence">
+                    {(entry.confidence * 100).toFixed(0)}%
+                  </span>
+                )}
               </div>
               <span className="expand-icon">
                 {expandedId === idx ? '▼' : '▶'}
@@ -59,7 +64,7 @@ export default function DecisionDiary({ diary }) {
             {expandedId === idx && (
               <div className="entry-details">
                 <div className="detail-section">
-                  <h4>LLM Reasoning</h4>
+                  <h4>Nocturne Reasoning</h4>
                   <p className="rationale">{entry.rationale}</p>
                 </div>
 
@@ -84,6 +89,44 @@ export default function DecisionDiary({ diary }) {
                           <span className="label">Size</span>
                           <span className="value">{(entry.positionSize * 100).toFixed(2)}%</span>
                         </div>
+                      )}
+                      {entry.leverage && (
+                        <div className="price-item">
+                          <span className="label">Leverage</span>
+                          <span className="value">{entry.leverage}x</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {entry.indicators && (
+                  <div className="detail-section">
+                    <h4>Technical Indicators</h4>
+                    <div className="indicators-grid">
+                      {entry.indicators['5m'] && (
+                        <>
+                          <div className="indicator-item">
+                            <span className="label">RSI (5m)</span>
+                            <span className={`value rsi-${entry.indicators['5m'].rsi < 30 ? 'oversold' : entry.indicators['5m'].rsi > 70 ? 'overbought' : 'normal'}`}>
+                              {entry.indicators['5m'].rsi.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="indicator-item">
+                            <span className="label">MACD (5m)</span>
+                            <span className={`value ${entry.indicators['5m'].macd > entry.indicators['5m'].signal ? 'bullish' : 'bearish'}`}>
+                              {entry.indicators['5m'].macd.toFixed(4)}
+                            </span>
+                          </div>
+                          <div className="indicator-item">
+                            <span className="label">EMA (5m)</span>
+                            <span className="value">${entry.indicators['5m'].ema.toFixed(2)}</span>
+                          </div>
+                          <div className="indicator-item">
+                            <span className="label">ATR (5m)</span>
+                            <span className="value">${entry.indicators['5m'].atr.toFixed(4)}</span>
+                          </div>
+                        </>
                       )}
                     </div>
                   </div>
@@ -143,6 +186,13 @@ export default function DecisionDiary({ diary }) {
                   <div className="detail-section">
                     <h4>Exit Plan</h4>
                     <p className="exit-plan">{entry.exitPlan}</p>
+                  </div>
+                )}
+
+                {entry.fundingRate && (
+                  <div className="detail-section">
+                    <h4>Funding Rate</h4>
+                    <p className="funding-rate">{(entry.fundingRate * 100).toFixed(4)}%</p>
                   </div>
                 )}
               </div>
