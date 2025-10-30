@@ -112,8 +112,8 @@ export class DreamsLLMClient {
 
     const indicators = Object.entries(context.indicators)
       .map(([asset, data]: [string, any]) => {
-        const rsi = data['5m']?.rsi?.toFixed(2) || 'N/A'
-        const macd = data['5m']?.macd?.toFixed(4) || 'N/A'
+        const rsi = typeof data['5m']?.rsi === 'number' ? data['5m'].rsi.toFixed(2) : 'N/A'
+        const macd = typeof data['5m']?.macd === 'number' ? data['5m'].macd.toFixed(4) : 'N/A'
         return `${asset}: RSI=${rsi}, MACD=${macd}`
       })
       .join('\n')

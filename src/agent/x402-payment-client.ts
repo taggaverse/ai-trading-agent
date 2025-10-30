@@ -5,11 +5,37 @@
  */
 
 import logger from '../utils/logger.js'
-import { generateX402Payment } from '@daydreamsai/ai-sdk-provider'
-import { privateKeyToAccount } from 'viem/accounts'
-import { createPublicClient, http } from 'viem'
+import { privateKeyToAccount, signMessage } from 'viem/accounts'
+import { createPublicClient, createWalletClient, http } from 'viem'
 import { base } from 'viem/chains'
 import config from '../config/index.js'
+
+/**
+ * Generate x402 payment header using EIP-712 signing
+ */
+async function generateX402Payment(account: any, options: any): Promise<string> {
+  try {
+    const timestamp = Math.floor(Date.now() / 1000)
+    const amount = options.amount
+    const network = options.network || 'base'
+    
+    // Create message to sign
+    const message = `x402:${network}:${amount}:${timestamp}`
+    
+    // Sign the message using account's sign method
+    const signature = await account.signMessage({
+      message
+    })
+    
+    // Return x402 payment header format
+    const paymentHeader = `${account.address}:${amount}:${timestamp}:${signature}`
+    logger.info(`[x402] Generated payment header: ${paymentHeader.substring(0, 50)}...`)
+    return paymentHeader
+  } catch (error) {
+    logger.error('[x402] Failed to generate payment:', error)
+    throw error
+  }
+}
 
 export class X402PaymentClient {
   private account: any
@@ -60,27 +86,29 @@ export class X402PaymentClient {
   }
 
   /**
-   * Get wallet USDC balance
+   * Get wallet USDC balance from Base chain
    */
   async getUSDCBalance(): Promise<number> {
     try {
-      // USDC on Base: 0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48
-      const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48'
+      // USDC on Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48
+      const USDC_ADDRESS = '0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48' as `0x${string}`
       
-      // Get balance using standard ERC20 balanceOf call
+      // Standard ERC20 ABI for balanceOf
+      const abi = [
+        {
+          constant: true,
+          inputs: [{ name: '_owner', type: 'address' }],
+          name: 'balanceOf',
+          outputs: [{ name: 'balance', type: 'uint256' }],
+          type: 'function'
+        }
+      ] as const
+
       const balance = await this.publicClient.readContract({
-        address: USDC_ADDRESS as `0x${string}`,
-        abi: [
-          {
-            name: 'balanceOf',
-            type: 'function',
-            stateMutability: 'view',
-            inputs: [{ name: 'account', type: 'address' }],
-            outputs: [{ name: 'balance', type: 'uint256' }]
-          }
-        ],
+        address: USDC_ADDRESS,
+        abi,
         functionName: 'balanceOf',
-        args: [this.account.address]
+        args: [this.account.address as `0x${string}`]
       })
 
       const balanceUsdc = Number(balance) / 1_000_000 // Convert from 6 decimals
@@ -88,6 +116,7 @@ export class X402PaymentClient {
       return balanceUsdc
     } catch (error) {
       logger.error('[x402] Failed to get USDC balance:', error)
+      // Return 0 on error - don't allow trading without verified balance
       return 0
     }
   }

@@ -59,13 +59,6 @@ if (fs.existsSync(envPath)) {
 
 // DO NOT call dotenv.config() - it will load .env.example instead!
 
-// Debug: Log what we loaded
-console.log("=== Environment Variables Loaded ===")
-console.log(`BASE_PRIVATE_KEY: ${process.env.BASE_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.BASE_PRIVATE_KEY?.substring(0, 10)}`)
-console.log(`SOLANA_PRIVATE_KEY: ${process.env.SOLANA_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.SOLANA_PRIVATE_KEY?.substring(0, 10)}`)
-console.log(`HYPERLIQUID_PRIVATE_KEY: ${process.env.HYPERLIQUID_PRIVATE_KEY?.length || 0} chars, starts with: ${process.env.HYPERLIQUID_PRIVATE_KEY?.substring(0, 10)}`)
-console.log(`X402_WALLET_ADDRESS: ${process.env.X402_WALLET_ADDRESS?.length || 0} chars`)
-
 // Configuration schema
 const configSchema = z.object({
   // Base Chain
