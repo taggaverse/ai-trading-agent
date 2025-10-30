@@ -5,8 +5,8 @@
 
 import logger from '../utils/logger.js'
 import axios from 'axios'
-import { generateX402Payment } from '@daydreamsai/ai-sdk-provider'
-import { privateKeyToAccount } from 'viem/accounts'
+import { privateKeyToAccount, signMessage } from 'viem/accounts'
+import { toHex } from 'viem'
 import config from '../config/index.js'
 
 export interface TradeDecision {
@@ -47,14 +47,9 @@ export class X402LLMClient {
     try {
       logger.info(`[x402 LLM] Calling Dreams Router (${amountUsdc} USDC)...`)
 
-      // Generate x402 payment header
-      const amountWei = Math.floor(amountUsdc * 1_000_000).toString() // Convert to 6 decimals
-      const paymentHeader = await generateX402Payment(this.account, {
-        amount: amountWei,
-        network: this.network as 'base-sepolia' | 'base'
-      })
-
-      logger.info(`[x402 LLM] Payment header generated`)
+      // TODO: Generate x402 payment header using @daydreamsai/ai-sdk-provider
+      // For now, call without x402 payment (will fail if not authenticated)
+      logger.info(`[x402 LLM] Calling Dreams Router...`)
 
       // Call Dreams Router
       const response = await axios.post(
@@ -77,8 +72,8 @@ export class X402LLMClient {
         },
         {
           headers: {
-            'Content-Type': 'application/json',
-            'X-Payment': paymentHeader
+            'Content-Type': 'application/json'
+            // TODO: Add X-Payment header with x402 payment
           },
           timeout: 60000
         }

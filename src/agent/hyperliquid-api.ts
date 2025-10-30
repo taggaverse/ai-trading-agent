@@ -6,6 +6,7 @@
 import logger from '../utils/logger.js'
 import axios from 'axios'
 import config from '../config/index.js'
+import { privateKeyToAccount } from 'viem/accounts'
 
 export interface HLPosition {
   asset: string
@@ -33,8 +34,16 @@ export class HyperliquidAPI {
       ? 'https://testnet.hyperliquid.exchange/api/v1'
       : 'https://api.hyperliquid.exchange/api/v1'
     
-    this.walletAddress = config.HYPERLIQUID_WALLET_ADDRESS || '0x0'
+    // Derive wallet address from private key if not provided
+    if (config.HYPERLIQUID_WALLET_ADDRESS) {
+      this.walletAddress = config.HYPERLIQUID_WALLET_ADDRESS
+    } else {
+      const account = privateKeyToAccount(config.HYPERLIQUID_PRIVATE_KEY as `0x${string}`)
+      this.walletAddress = account.address
+    }
+    
     logger.info(`[HL API] Initialized: ${this.apiUrl}`)
+    logger.info(`[HL API] Wallet: ${this.walletAddress}`)
   }
 
   /**

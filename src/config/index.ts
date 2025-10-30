@@ -3,6 +3,7 @@ import { z } from "zod"
 import path from "path"
 import { fileURLToPath } from "url"
 import fs from "fs"
+import { privateKeyToAccount } from "viem/accounts"
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = path.dirname(__filename)
@@ -73,7 +74,7 @@ const configSchema = z.object({
   
   // Hyperliquid
   HYPERLIQUID_PRIVATE_KEY: z.string(),
-  HYPERLIQUID_WALLET_ADDRESS: z.string(),
+  HYPERLIQUID_WALLET_ADDRESS: z.string().optional(),
   HYPERLIQUID_TESTNET: z.string().default("false"),
   HYPERLIQUID_NETWORK: z.string().default("mainnet"),
   
@@ -109,6 +110,13 @@ let config: Config
 
 try {
   config = configSchema.parse(process.env)
+  
+  // Derive HYPERLIQUID_WALLET_ADDRESS from private key if not provided
+  if (!config.HYPERLIQUID_WALLET_ADDRESS && config.HYPERLIQUID_PRIVATE_KEY) {
+    const account = privateKeyToAccount(config.HYPERLIQUID_PRIVATE_KEY as `0x${string}`)
+    config.HYPERLIQUID_WALLET_ADDRESS = account.address
+    console.log(`[Config] Derived Hyperliquid wallet: ${config.HYPERLIQUID_WALLET_ADDRESS}`)
+  }
 } catch (error) {
   console.error("Invalid configuration:", error)
   process.exit(1)
