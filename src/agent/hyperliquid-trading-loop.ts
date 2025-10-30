@@ -10,6 +10,7 @@ import { NOCTURNE_TRADING_SYSTEM_PROMPT } from './nocturne-system-prompt.js'
 import { DreamsLLMClient } from './dreams-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 import { MarketDataClient } from './market-data-client.js'
+import { TradingDataLogger } from './trading-data-logger.js'
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
   assets: string[]
@@ -206,37 +207,12 @@ export class HyperliquidTradingLoop {
   }
 
   /**
-   * Build context payload for LLM with historical learning data
+   * Build context payload for LLM (fixed strategy, no adaptive learning)
    */
   private buildContext(
     portfolioState: any,
     indicators: Record<string, any>
   ): Record<string, any> {
-    // Calculate performance metrics
-    const recentDecisions = this.state.decisions.slice(-10) // Last 10 trades
-    const winningTrades = recentDecisions.filter(d => d.action !== 'HOLD' && (d as any).pnl > 0)
-    const losingTrades = recentDecisions.filter(d => d.action !== 'HOLD' && (d as any).pnl < 0)
-    const winRate = recentDecisions.length > 0 ? (winningTrades.length / recentDecisions.filter(d => d.action !== 'HOLD').length) * 100 : 0
-    
-    // Per-asset performance
-    const assetPerformance: Record<string, { wins: number; losses: number; totalPnL: number }> = {}
-    for (const asset of this.config.assets) {
-      const assetTrades = recentDecisions.filter(d => d.asset === asset && d.action !== 'HOLD')
-      assetPerformance[asset] = {
-        wins: assetTrades.filter(t => (t as any).pnl > 0).length,
-        losses: assetTrades.filter(t => (t as any).pnl < 0).length,
-        totalPnL: assetTrades.reduce((sum, t) => sum + ((t as any).pnl || 0), 0)
-      }
-    }
-
-    // Recent trade outcomes
-    const recentOutcomes = recentDecisions.slice(-5).map(d => ({
-      asset: d.asset,
-      action: d.action,
-      pnl: (d as any).pnl || 0,
-      rationale: d.rationale
-    }))
-
     return {
       timestamp: new Date().toISOString(),
       iteration: this.state.iteration,
@@ -245,14 +221,6 @@ export class HyperliquidTradingLoop {
         positions: portfolioState.positions,
         totalTrades: this.state.totalTrades,
         totalPnL: this.state.totalPnL
-      },
-      performance: {
-        winRate: winRate.toFixed(1),
-        winCount: winningTrades.length,
-        lossCount: losingTrades.length,
-        recentTrades: recentOutcomes,
-        assetPerformance: assetPerformance,
-        recentDecisions: recentDecisions
       },
       marketData: indicators,
       config: {
