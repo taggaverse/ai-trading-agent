@@ -47,11 +47,9 @@ export class X402LLMClient {
     try {
       logger.info(`[x402 LLM] Calling Dreams Router (${amountUsdc} USDC)...`)
 
-      // TODO: Generate x402 payment header using @daydreamsai/ai-sdk-provider
-      // For now, call without x402 payment (will fail if not authenticated)
-      logger.info(`[x402 LLM] Calling Dreams Router...`)
+      // Call Dreams Router - using public endpoint for now
+      logger.info(`[x402 LLM] Sending request to ${this.routerUrl}/v1/chat/completions`)
 
-      // Call Dreams Router
       const response = await axios.post(
         `${this.routerUrl}/v1/chat/completions`,
         {
@@ -67,19 +65,16 @@ export class X402LLMClient {
             }
           ],
           temperature: 0.7,
-          max_tokens: 2000,
-          response_format: { type: 'json_object' }
+          max_tokens: 2000
         },
         {
           headers: {
-            'Content-Type': 'application/json'
-            // TODO: Add X-Payment header with x402 payment
+            'Content-Type': 'application/json',
+            'User-Agent': 'Hyperliquid-Trading-Agent/1.0'
           },
           timeout: 60000
         }
       )
-
-      logger.info(`[x402 LLM] Response received`)
 
       // Parse response
       const content = response.data.choices[0]?.message?.content
