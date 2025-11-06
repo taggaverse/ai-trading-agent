@@ -405,6 +405,8 @@ Adjust position sizes based on market regime multipliers.
 
       // Call LLM via Dreams Router
       logger.info('   [Dreams LLM] Sending request to Dreams Router...')
+      logger.debug(`   [Dreams LLM] User Prompt:\n${userPrompt.substring(0, 500)}...`)
+      
       const response = await this.dreamsRouter('google-vertex/gemini-2.5-flash', [
         {
           role: 'system',
@@ -418,18 +420,36 @@ Adjust position sizes based on market regime multipliers.
 
       // Parse response
       let decisions: TradeDecision[] = []
-      if (response && response.message && response.message.content) {
+      logger.info(`   [Dreams LLM] Response object: ${JSON.stringify(response).substring(0, 200)}`)
+      
+      if (!response) {
+        logger.warn('   ⚠️  LLM returned null response')
+      } else if (!response.message) {
+        logger.warn(`   ⚠️  LLM response has no message field. Response keys: ${Object.keys(response).join(', ')}`)
+      } else if (!response.message.content) {
+        logger.warn(`   ⚠️  LLM message has no content field. Message keys: ${Object.keys(response.message).join(', ')}`)
+      } else {
         const content = response.message.content
+        logger.info(`   [Dreams LLM] Response received (${content.length} chars)`)
+        logger.info(`   [Dreams LLM] Full Response:\n${content}`)
+        
         try {
           const parsed = JSON.parse(content)
           decisions = parsed.decisions || []
+          logger.info(`   [Dreams LLM] Parsed ${decisions.length} decisions from JSON`)
         } catch (parseError) {
           logger.warn('   ⚠️  Failed to parse LLM response as JSON:', parseError)
+          logger.warn(`   [Dreams LLM] Response content: ${content.substring(0, 500)}`)
           // Try to extract JSON from response
           const jsonMatch = content.match(/\{[\s\S]*\}/)
           if (jsonMatch) {
-            const parsed = JSON.parse(jsonMatch[0])
-            decisions = parsed.decisions || []
+            try {
+              const parsed = JSON.parse(jsonMatch[0])
+              decisions = parsed.decisions || []
+              logger.info(`   [Dreams LLM] Extracted ${decisions.length} decisions from JSON match`)
+            } catch (e) {
+              logger.warn('   ⚠️  Failed to parse extracted JSON:', e)
+            }
           }
         }
       }
