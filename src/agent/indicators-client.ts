@@ -38,6 +38,18 @@ export interface Indicators {
   timestamp: number
 }
 
+export interface MarketRegime {
+  regime: number
+  name: string
+  trend: 'up' | 'down' | 'sideways'
+  volatility: 'low' | 'high'
+  positionSizeMultiplier: number
+  leverageMultiplier: number
+  tradingBias: 'long_only' | 'short_only' | 'both' | 'avoid'
+  recommendation: string
+  confidence: number
+}
+
 export class IndicatorsClient {
   private apiKey: string
   private taapiEndpoint: string = 'https://api.taapi.io/bulk'
@@ -330,6 +342,141 @@ export class IndicatorsClient {
         bb: indicators.bb
       },
       timestamp: indicators.timestamp
+    }
+  }
+
+  /**
+   * Detect current market regime (8 regimes framework)
+   * Based on trend (EMA analysis) and volatility (ATR + BB width)
+   */
+  detectMarketRegime(indicators: Indicators, atrAverage: number = 500): MarketRegime {
+    // Detect trend using EMA
+    const price = indicators.ema.ema20 // Use EMA20 as proxy for current price
+    const ema20 = indicators.ema.ema20
+    const ema50 = indicators.ema.ema50
+    const ema200 = indicators.ema.ema200
+
+    // Trend detection
+    let trend: 'up' | 'down' | 'sideways'
+    if (ema20 > ema50 && ema50 > ema200 && price > ema200) {
+      trend = 'up'
+    } else if (ema20 < ema50 && ema50 < ema200 && price < ema200) {
+      trend = 'down'
+    } else {
+      trend = 'sideways'
+    }
+
+    // Volatility detection (ATR-based)
+    const volatilityRatio = indicators.atr / atrAverage
+    const volatility: 'low' | 'high' = volatilityRatio < 0.9 ? 'low' : 'high'
+
+    // RSI for transition detection
+    const rsi = indicators.rsi
+
+    // Determine regime (1-8)
+    let regime: number
+    let name: string
+    let positionSizeMultiplier: number
+    let leverageMultiplier: number
+    let tradingBias: 'long_only' | 'short_only' | 'both' | 'avoid'
+    let recommendation: string
+    let confidence: number
+
+    if (trend === 'up' && volatility === 'low') {
+      // REGIME 1: Smooth Uptrend (Goldilocks)
+      regime = 1
+      name = 'Smooth Uptrend'
+      positionSizeMultiplier = 1.0 // 2.0% position
+      leverageMultiplier = 1.0 // 5x leverage
+      tradingBias = 'long_only'
+      recommendation = 'Aggressive long bias. Maximum position size. Wide stops. Hold longer.'
+      confidence = 0.95
+    } else if (trend === 'up' && volatility === 'high') {
+      // REGIME 2: Volatile Bull
+      regime = 2
+      name = 'Volatile Bull'
+      positionSizeMultiplier = 0.5 // 1.0% position
+      leverageMultiplier = 0.6 // 3x leverage
+      tradingBias = 'long_only'
+      recommendation = 'Long bias but cautious. Reduced position size. Tight stops. Quick exits.'
+      confidence = 0.75
+    } else if (trend === 'down' && volatility === 'low') {
+      // REGIME 3: Smooth Bear
+      regime = 3
+      name = 'Smooth Bear'
+      positionSizeMultiplier = 1.0 // 2.0% position
+      leverageMultiplier = 1.0 // 5x leverage
+      tradingBias = 'short_only'
+      recommendation = 'Aggressive short bias. Maximum position size. Wide stops. Hold longer.'
+      confidence = 0.95
+    } else if (trend === 'down' && volatility === 'high') {
+      // REGIME 4: Volatile Bear
+      regime = 4
+      name = 'Volatile Bear'
+      positionSizeMultiplier = 0.5 // 1.0% position
+      leverageMultiplier = 0.6 // 3x leverage
+      tradingBias = 'short_only'
+      recommendation = 'Short bias but cautious. Reduced position size. Tight stops. Quick exits.'
+      confidence = 0.75
+    } else if (trend === 'sideways' && volatility === 'low') {
+      // REGIME 5: Boring Range
+      regime = 5
+      name = 'Boring Range'
+      positionSizeMultiplier = 0.25 // 0.5% position
+      leverageMultiplier = 0.4 // 2x leverage
+      tradingBias = 'both'
+      recommendation = 'Range trading only. Buy support, sell resistance. Tight stops. Quick exits.'
+      confidence = 0.70
+    } else if (trend === 'sideways' && volatility === 'high') {
+      // REGIME 6: Whipsaw
+      regime = 6
+      name = 'Whipsaw'
+      positionSizeMultiplier = 0.0 // 0% position
+      leverageMultiplier = 0.2 // 1x leverage
+      tradingBias = 'avoid'
+      recommendation = 'DO NOT TRADE. Avoid all new positions. Reduce existing positions. Wait for regime change.'
+      confidence = 0.85
+    } else if (trend === 'sideways' && rsi < 30) {
+      // REGIME 7: Capitulation (Transition Up)
+      regime = 7
+      name = 'Capitulation'
+      positionSizeMultiplier = 0.25 // 0.5% position
+      leverageMultiplier = 0.4 // 2x leverage
+      tradingBias = 'long_only'
+      recommendation = 'Prepare for reversal. Build small long positions. Wait for RSI > 30 confirmation.'
+      confidence = 0.65
+    } else if (trend === 'sideways' && rsi > 70) {
+      // REGIME 8: Euphoria (Transition Down)
+      regime = 8
+      name = 'Euphoria'
+      positionSizeMultiplier = 0.25 // 0.5% position
+      leverageMultiplier = 0.4 // 2x leverage
+      tradingBias = 'short_only'
+      recommendation = 'Prepare for reversal. Reduce existing longs. Build small short positions. Wait for RSI < 70 confirmation.'
+      confidence = 0.65
+    } else {
+      // Default: Neutral
+      regime = 5
+      name = 'Neutral'
+      positionSizeMultiplier = 0.25
+      leverageMultiplier = 0.4
+      tradingBias = 'both'
+      recommendation = 'Mixed signals. Reduce position size. Wait for clarity.'
+      confidence = 0.50
+    }
+
+    logger.info(`[Regime] Detected Regime ${regime}: ${name} (Trend: ${trend}, Vol: ${volatility}, Confidence: ${(confidence * 100).toFixed(0)}%)`)
+
+    return {
+      regime,
+      name,
+      trend,
+      volatility,
+      positionSizeMultiplier,
+      leverageMultiplier,
+      tradingBias,
+      recommendation,
+      confidence
     }
   }
 }

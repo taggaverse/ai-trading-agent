@@ -5,7 +5,7 @@
 
 import logger from '../utils/logger.js'
 import { HyperliquidAPI } from './hyperliquid-api.js'
-import { IndicatorsClient } from './indicators-client.js'
+import { IndicatorsClient, MarketRegime } from './indicators-client.js'
 import { NOCTURNE_TRADING_SYSTEM_PROMPT } from './nocturne-system-prompt.js'
 import { DreamsLLMClient } from './dreams-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
@@ -272,11 +272,18 @@ export class HyperliquidTradingLoop {
 
   /**
    * Build context payload for LLM (fixed strategy, no adaptive learning)
+   * Includes market regime detection for intelligent position sizing
    */
   private buildContext(
     portfolioState: any,
     indicators: Record<string, any>
   ): Record<string, any> {
+    // Detect market regime using BTC as primary indicator
+    let marketRegime: MarketRegime | null = null
+    if (indicators['BTC'] && indicators['BTC']['5m']) {
+      marketRegime = this.indicatorsClient['detectMarketRegime'](indicators['BTC']['5m'])
+    }
+
     return {
       timestamp: new Date().toISOString(),
       iteration: this.state.iteration,
@@ -287,6 +294,7 @@ export class HyperliquidTradingLoop {
         totalPnL: this.state.totalPnL
       },
       marketData: indicators,
+      marketRegime: marketRegime,
       config: {
         assets: this.config.assets,
         maxPositionSize: this.config.maxPositionSize,
@@ -326,6 +334,28 @@ export class HyperliquidTradingLoop {
         })
         .join('\n')
 
+      // Build regime section
+      const regimeSection = context.marketRegime ? `
+## MARKET REGIME (8-Regime Framework)
+
+Current Regime: ${context.marketRegime.regime} - ${context.marketRegime.name}
+Trend: ${context.marketRegime.trend.toUpperCase()}
+Volatility: ${context.marketRegime.volatility.toUpperCase()}
+Confidence: ${(context.marketRegime.confidence * 100).toFixed(0)}%
+
+Position Size Multiplier: ${context.marketRegime.positionSizeMultiplier}x (adjust base position size)
+Leverage Multiplier: ${context.marketRegime.leverageMultiplier}x (adjust base leverage)
+Trading Bias: ${context.marketRegime.tradingBias.toUpperCase()}
+
+Recommendation: ${context.marketRegime.recommendation}
+
+REGIME-SPECIFIC RULES:
+- Apply position size multiplier to all trades
+- Apply leverage multiplier to all trades
+- Only take ${context.marketRegime.tradingBias === 'avoid' ? 'NO' : context.marketRegime.tradingBias === 'both' ? 'BOTH' : context.marketRegime.tradingBias.split('_')[0].toUpperCase()} trades
+- If regime is Whipsaw (6): Reduce all positions by 50% and avoid new trades
+` : ''
+
       const userPrompt = `
 ## CURRENT PORTFOLIO STATE
 
@@ -340,13 +370,15 @@ ${context.account?.positions?.map((p: any) => `${p.asset}: ${p.size} @ $${p.curr
 
 Available Data (Technical Indicators or Price Data):
 ${marketDataStr || 'None'}
+${regimeSection}
 
 ## TRADING INSTRUCTIONS
 
-Use FIXED STRATEGY based on available signals:
+Use FIXED STRATEGY based on available signals and market regime:
 - Apply the same rules to every asset
 - Use technical indicators if available (RSI, MACD, ATR)
 - If indicators unavailable, use price trends and position data
+- RESPECT THE MARKET REGIME - adjust position sizing and leverage accordingly
 - Do NOT adjust based on past performance
 - Do NOT increase size after wins or reduce after losses
 - Do NOT favor or avoid specific assets based on history
@@ -357,7 +389,7 @@ Provide trading decisions in JSON format:
     {
       "asset": "BTC",
       "action": "BUY|SELL|HOLD",
-      "rationale": "Clear explanation of decision",
+      "rationale": "Clear explanation including regime context",
       "entryPrice": optional_number,
       "takeProfit": optional_number,
       "stopLoss": optional_number,
@@ -368,6 +400,7 @@ Provide trading decisions in JSON format:
 }
 
 Only include decisions for assets with clear signals. Prioritize capital preservation.
+Adjust position sizes based on market regime multipliers.
 `
 
       // Call LLM via Dreams Router
