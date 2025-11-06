@@ -30,13 +30,13 @@ export interface Indicators {
 
 export class IndicatorsClient {
   private apiKey: string
-  private taapiEndpoint: string = 'https://api.taapi.io'
+  private taapiEndpoint: string = 'https://api.taapi.io/bulk'
   private paymentManager?: X402PaymentManager
 
   constructor(apiKey: string, paymentManager?: X402PaymentManager) {
     this.apiKey = apiKey
     this.paymentManager = paymentManager
-    logger.info(`IndicatorsClient initialized with TAAPI endpoint (API Key: ${apiKey ? 'configured' : 'missing'})`)
+    logger.info(`IndicatorsClient initialized with TAAPI Bulk API (API Key: ${apiKey ? 'configured' : 'missing'})`)
   }
 
   /**
@@ -47,70 +47,114 @@ export class IndicatorsClient {
   }
 
   /**
-   * Get all technical indicators for an asset and timeframe
+   * Get all technical indicators for an asset and timeframe using TAAPI Bulk API
+   * Tries multiple exchanges with fallback: binance -> bybit -> gate
    */
   async getIndicators(asset: string, timeframe: string): Promise<Indicators> {
     try {
-      logger.info(`Fetching indicators for ${asset} (${timeframe}) from TAAPI...`)
+      logger.info(`Fetching indicators for ${asset} (${timeframe}) from TAAPI Bulk API...`)
 
       if (!this.apiKey || this.apiKey === 'mock-key') {
         logger.warn(`⚠️  TAAPI API key not configured, using mock indicators`)
         return this.getMockIndicators()
       }
 
-      // Call TAAPI endpoint for RSI
-      const rsiResponse = await axios.get(
-        `${this.taapiEndpoint}/rsi`,
+      // Try multiple exchanges in order of preference
+      const exchanges = ['binance', 'bybit', 'gate']
+      
+      for (const exchange of exchanges) {
+        try {
+          const result = await this.fetchIndicatorsFromExchange(asset, timeframe, exchange)
+          if (result) {
+            return result
+          }
+        } catch (exchangeError) {
+          logger.debug(`[TAAPI] ${exchange} failed, trying next exchange...`)
+          continue
+        }
+      }
+
+      // If all exchanges fail, fall back to mock
+      logger.warn(`✗ Failed to fetch indicators from all exchanges for ${asset}`)
+      return this.getMockIndicators()
+    } catch (error) {
+      logger.warn(`✗ Failed to fetch indicators from TAAPI for ${asset}:`, error instanceof Error ? error.message : error)
+      return this.getMockIndicators()
+    }
+  }
+
+  /**
+   * Fetch indicators from a specific exchange
+   */
+  private async fetchIndicatorsFromExchange(
+    asset: string,
+    timeframe: string,
+    exchange: string
+  ): Promise<Indicators | null> {
+    try {
+      const payload = {
+        secret: this.apiKey,
+        construct: {
+          exchange: exchange,
+          symbol: `${asset}/USDT`,
+          interval: this.mapTimeframe(timeframe),
+          indicators: [
+            { indicator: 'rsi' },
+            { indicator: 'macd' },
+            { indicator: 'ema', period: 20 },
+            { indicator: 'ema', period: 50 },
+            { indicator: 'ema', period: 200 },
+            { indicator: 'atr' }
+          ]
+        }
+      }
+
+      logger.debug(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}`)
+      const response = await axios.post(
+        this.taapiEndpoint,
+        payload,
         {
-          params: {
-            secret: this.apiKey,
-            exchange: 'binance',
-            symbol: `${asset}/USDT`,
-            interval: this.mapTimeframe(timeframe)
+          headers: {
+            'Content-Type': 'application/json'
           },
           timeout: 10000
         }
       )
 
-      // Call TAAPI endpoint for MACD
-      const macdResponse = await axios.get(
-        `${this.taapiEndpoint}/macd`,
-        {
-          params: {
-            secret: this.apiKey,
-            exchange: 'binance',
-            symbol: `${asset}/USDT`,
-            interval: this.mapTimeframe(timeframe)
-          },
-          timeout: 10000
-        }
-      )
+      if (response.data && response.data.data && Array.isArray(response.data.data)) {
+        logger.info(`✓ Received indicators for ${asset} from TAAPI (${exchange})`)
+        const data = response.data.data
 
-      if (rsiResponse.data && macdResponse.data) {
-        logger.info(`✓ Received indicators for ${asset} from TAAPI`)
+        // Extract values from the response
+        const rsiData = data.find((d: any) => d.indicator === 'rsi')
+        const macdData = data.find((d: any) => d.indicator === 'macd')
+        const ema20Data = data.find((d: any) => d.indicator === 'ema' && d.period === 20)
+        const ema50Data = data.find((d: any) => d.indicator === 'ema' && d.period === 50)
+        const ema200Data = data.find((d: any) => d.indicator === 'ema' && d.period === 200)
+        const atrData = data.find((d: any) => d.indicator === 'atr')
+
         return {
-          rsi: parseFloat(rsiResponse.data.value) || 50,
+          rsi: rsiData?.value ? parseFloat(rsiData.value) : 50,
           macd: {
-            value: parseFloat(macdResponse.data.value) || 0,
-            signal: parseFloat(macdResponse.data.signal) || 0,
-            histogram: parseFloat(macdResponse.data.histogram) || 0
+            value: macdData?.value ? parseFloat(macdData.value) : 0,
+            signal: macdData?.signal ? parseFloat(macdData.signal) : 0,
+            histogram: macdData?.histogram ? parseFloat(macdData.histogram) : 0
           },
           ema: {
-            ema20: 42000 + Math.random() * 1000,
-            ema50: 41500 + Math.random() * 1000,
-            ema200: 41000 + Math.random() * 1000
+            ema20: ema20Data?.value ? parseFloat(ema20Data.value) : 42000,
+            ema50: ema50Data?.value ? parseFloat(ema50Data.value) : 41500,
+            ema200: ema200Data?.value ? parseFloat(ema200Data.value) : 41000
           },
-          atr: 500 + Math.random() * 200,
+          atr: atrData?.value ? parseFloat(atrData.value) : 500,
           timestamp: Date.now()
         }
       } else {
-        logger.warn(`✗ Invalid response from TAAPI for ${asset}`)
-        return this.getMockIndicators()
+        logger.debug(`[TAAPI] Invalid response from ${exchange} for ${asset}`)
+        return null
       }
     } catch (error) {
-      logger.warn(`✗ Failed to fetch indicators from TAAPI for ${asset}:`, error instanceof Error ? error.message : error)
-      // Fall back to mock indicators
-      return this.getMockIndicators()
+      logger.debug(`[TAAPI] ${exchange} error: ${error instanceof Error ? error.message : error}`)
+      return null
     }
   }
 
