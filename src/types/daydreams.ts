@@ -1,8 +1,8 @@
 // Daydreams types and implementations
 // Provides real Dreams Router API integration with x402 payments
 
-import axios from 'axios'
 import logger from '../utils/logger.js'
+import { generateX402Payment } from '@daydreamsai/ai-sdk-provider'
 
 export function context(config: any) {
   return {
@@ -41,83 +41,53 @@ export async function createDreams(config: any) {
 }
 
 export async function createDreamsRouterAuth(account: any, config: any) {
-  // Create a real dreamsRouter function that calls the Dreams Router API
+  // Create a real dreamsRouter function that calls the Dreams Router API with x402 payments
   const dreamsRouter = async (model: string, messages: any[]) => {
     try {
-      logger.debug(`[Dreams Router] Calling ${model} with ${messages.length} messages`)
+      logger.info(`[Dreams Router] Calling ${model} with ${messages.length} messages via x402 payment`)
       
-      // Try multiple endpoints with different configurations
-      const endpoints = [
-        {
-          url: 'https://router.daydreams.systems/chat',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        },
-        {
-          url: 'https://router.daydreams.systems/v1/chat/completions',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        },
-        {
-          url: 'https://api.daydreams.systems/v1/chat/completions',
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        }
-      ]
+      // Generate x402 payment header
+      const paymentHeader = await generateX402Payment(account, {
+        amount: '100000', // $0.10 USDC (6 decimals)
+        network: config.X402_NETWORK || 'base-sepolia',
+      })
 
-      let lastError: any = null
-      for (const endpoint of endpoints) {
-        try {
-          logger.debug(`[Dreams Router] Trying endpoint: ${endpoint.url}`)
-          
-          const response = await axios({
-            method: endpoint.method,
-            url: endpoint.url,
-            data: {
-              model: model,
-              messages: messages,
-              temperature: 0.7,
-              max_tokens: 2000
-            },
-            headers: endpoint.headers,
-            timeout: 30000,
-            validateStatus: () => true // Accept any status code
-          })
-
-          logger.debug(`[Dreams Router] Response status: ${response.status}`)
-          
-          // Check if response is successful
-          if (response.status === 200 || response.status === 201) {
-            logger.debug(`[Dreams Router] Response received from ${model}`)
-            
-            // Handle different response formats
-            const content = 
-              response.data.choices?.[0]?.message?.content ||
-              response.data.message?.content ||
-              response.data.content ||
-              response.data.text ||
-              ''
-            
-            if (content) {
-              return {
-                message: {
-                  content: content
-                }
-              }
-            }
-          } else {
-            logger.debug(`[Dreams Router] Endpoint ${endpoint.url} returned status ${response.status}`)
-            logger.debug(`[Dreams Router] Response: ${JSON.stringify(response.data).substring(0, 200)}`)
-          }
-        } catch (error: any) {
-          lastError = error
-          logger.debug(`[Dreams Router] Endpoint ${endpoint.url} failed: ${error.message}`)
-          continue
-        }
+      if (!paymentHeader) {
+        throw new Error('Failed to generate x402 payment header')
       }
 
-      // If all endpoints failed, throw the last error
-      throw lastError || new Error('All Dreams Router endpoints failed')
+      logger.info(`[Dreams Router] Generated x402 payment header`)
+      
+      // Build headers with payment
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        'X-Payment': paymentHeader,
+      }
+      
+      // Call Dreams Router API with x402 payment
+      const response = await fetch(
+        'https://router.daydreams.systems/v1/chat/completions',
+        {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify({
+            model: model,
+            messages: messages,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
+      }
+
+      const result = await response.json()
+      
+      logger.info(`[Dreams Router] Response received (${JSON.stringify(result).length} chars)`)
+      
+      // Return response in OpenAI format
+      return result
     } catch (error) {
       logger.error(`[Dreams Router] Failed to call ${model}:`, error)
       throw error
