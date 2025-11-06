@@ -148,8 +148,9 @@ Provide decisions in this exact JSON format:
       "asset": "BTC",
       "action": "BUY|SELL|HOLD",
       "confidence": 0.0-1.0,
-      "reasoning": "Clear explanation including timeframe analysis",
+      "reasoning": "Clear explanation including timeframe and regime analysis",
       "timeframeAnalysis": "5m only|5m+1h|5m+1h+4h",
+      "regimeContext": "Regime number and how it affects this decision",
       "entryPrice": number,
       "takeProfit": number,
       "stopLoss": number,
@@ -174,38 +175,99 @@ Provide decisions in this exact JSON format:
 
 ## EXAMPLE DECISIONS
 
-### Example 1: 5m Only - Small Position
-- Data: BTC 5m RSI=28, MACD=0.0015 (bullish), Price above EMA
-- Decision: BUY 0.005 BTC at $45,000, TP=$45,900, SL=$44,100
-- Reasoning: "5m only data. Oversold RSI with bullish MACD. Small 0.5% position, quick 1-2% target"
-- Time Horizon: 15-60 minutes
+### Example 1: Regime 1 (Smooth Uptrend) - Aggressive Long
+- Regime: 1 - Smooth Uptrend (Up + Low Vol, Confidence 95%)
+- Data: BTC 5m+1h+4h all bullish, RSI=35, MACD bullish, price above all EMAs
+- Position Size Multiplier: 1.0x (2.0% position)
+- Leverage Multiplier: 1.0x (5x leverage)
+- Decision: BUY 0.02 BTC at $45,000, TP=$46,800, SL=$44,100
+- Reasoning: "Regime 1 smooth uptrend. Full multi-timeframe alignment. Aggressive long bias. Maximum position size with wide stops. Hold for 4-24h target."
+- Regime Context: "Smooth uptrend regime allows maximum position sizing and leverage. Wide stops justified by low volatility."
 
-### Example 2: 5m + 1h - Medium Position
-- Data: ETH 5m RSI=35 + 1h RSI=45 (room to run), both MACD bullish, price above EMA
-- Decision: BUY 0.01 ETH at $2,500, TP=$2,600, SL=$2,450
-- Reasoning: "5m+1h alignment. Both timeframes bullish with 1h RSI showing room to run. Medium 1% position"
-- Time Horizon: 1-4 hours
+### Example 2: Regime 2 (Volatile Bull) - Cautious Long
+- Regime: 2 - Volatile Bull (Up + High Vol, Confidence 75%)
+- Data: ETH 5m+1h bullish but 1h RSI=65 (approaching overbought), MACD bullish
+- Position Size Multiplier: 0.5x (1.0% position)
+- Leverage Multiplier: 0.6x (3x leverage)
+- Decision: BUY 0.01 ETH at $2,500, TP=$2,550, SL=$2,450
+- Reasoning: "Regime 2 volatile bull. Reduced position size due to high volatility. Tighter stops and quicker exits. Hold for 1-4h."
+- Regime Context: "Volatile market requires reduced position size and leverage. Take profits quickly."
 
-### Example 3: 5m + 1h + 4h - Large Position
-- Data: XRP 5m bullish + 1h bullish + 4h uptrend (price above EMA, RSI=55)
-- Decision: BUY 0.02 XRP at $2.50, TP=$2.70, SL=$2.30
-- Reasoning: "Full multi-timeframe alignment. 4h uptrend supports trade. Large 2% position with wide stops"
-- Time Horizon: 4-24 hours
+### Example 3: Regime 5 (Boring Range) - Range Trade
+- Regime: 5 - Boring Range (Sideways + Low Vol, Confidence 70%)
+- Data: XRP 5m RSI=45, MACD near zero, price oscillating around EMA
+- Position Size Multiplier: 0.25x (0.5% position)
+- Leverage Multiplier: 0.4x (2x leverage)
+- Decision: BUY 0.005 XRP at $2.45 (support), TP=$2.55 (resistance), SL=$2.40
+- Reasoning: "Regime 5 boring range. Range trading only. Buy support, sell resistance. Tight stops, quick exits."
+- Regime Context: "Range-bound market. Reduce position size significantly. Scalp between support and resistance."
 
-### Example 4: Don't Fight the Macro Trend
+### Example 4: Regime 6 (Whipsaw) - AVOID TRADING
+- Regime: 6 - Whipsaw (Sideways + High Vol, Confidence 85%)
+- Data: BTC 5m RSI=50, MACD oscillating, price whipsawing
+- Position Size Multiplier: 0.0x (0% position - AVOID)
+- Leverage Multiplier: 0.2x (1x leverage minimum)
+- Decision: HOLD (do not trade)
+- Reasoning: "Regime 6 whipsaw. DO NOT TRADE. Avoid all new positions. Reduce existing positions by 50%. Wait for regime change."
+- Regime Context: "Whipsaw regime is extremely dangerous. No new trades. Reduce risk."
+
+### Example 5: Regime 7 (Capitulation) - Prepare for Reversal
+- Regime: 7 - Capitulation (Transition Up, Confidence 65%)
+- Data: ETH 5m RSI=25 (oversold), MACD bullish divergence, price near support
+- Position Size Multiplier: 0.25x (0.5% position)
+- Leverage Multiplier: 0.4x (2x leverage)
+- Decision: BUY 0.005 ETH at $2,400, TP=$2,500, SL=$2,350
+- Reasoning: "Regime 7 capitulation. Prepare for reversal. Build small long position. Wait for RSI > 30 confirmation before adding."
+- Regime Context: "Capitulation regime signals potential bottom. Small position to catch reversal. Patience required."
+
+### Example 6: Regime 8 (Euphoria) - Prepare for Reversal Down
+- Regime: 8 - Euphoria (Transition Down, Confidence 65%)
+- Data: BTC 5m RSI=78 (overbought), MACD bearish divergence, price near resistance
+- Position Size Multiplier: 0.25x (0.5% position)
+- Leverage Multiplier: 0.4x (2x leverage)
+- Decision: SELL 0.005 BTC at $47,000, TP=$46,500, SL=$47,500
+- Reasoning: "Regime 8 euphoria. Prepare for reversal. Reduce existing longs. Build small short position. Wait for RSI < 70 confirmation."
+- Regime Context: "Euphoria regime signals potential top. Reduce long exposure. Small short to catch reversal."
+
+### Example 7: Multi-Timeframe + Regime Conflict
+- Regime: 1 - Smooth Uptrend (Confidence 95%)
 - Data: BTC 5m bullish + 1h bullish BUT 4h downtrend (price below EMA)
 - Decision: HOLD (do not trade)
-- Reasoning: "5m and 1h signals are bullish but 4h is in downtrend. Never trade against macro trend. Wait for 4h reversal"
+- Reasoning: "Regime 1 suggests aggression, but 4h downtrend conflicts. Never trade against macro trend. Wait for 4h reversal."
+- Regime Context: "Regime 1 is positive but 4h trend overrides. Macro trend takes precedence over regime."
 
-### Example 5: Weak Signal - Wait
-- Data: ETH 5m RSI=55, MACD=-0.0005 (bearish), Price above EMA
-- Decision: HOLD
-- Reasoning: "Mixed signals - price in uptrend but MACD bearish. Wait for clearer confirmation"
+## REGIME-AWARE TRADING RULES
 
-### Example 6: Take Profit
-- Data: SOL Position open at $150, current price $153, 5m RSI=72 (overbought)
-- Decision: SELL 0.1 SOL at $153, close position
-- Reasoning: "Position +2% profit with overbought RSI. Take profit and reduce risk"
+### Position Sizing by Regime
+- Regime 1-3 (Smooth trends): Use FULL position size multiplier (1.0x = 2.0%)
+- Regime 2,4 (Volatile): Use HALF position size multiplier (0.5x = 1.0%)
+- Regime 5 (Range): Use QUARTER position size multiplier (0.25x = 0.5%)
+- Regime 6 (Whipsaw): Use ZERO position size (0.0x = AVOID)
+- Regime 7-8 (Transitions): Use QUARTER position size (0.25x = 0.5%)
+
+### Leverage by Regime
+- Regime 1-3 (Smooth trends): Use FULL leverage multiplier (1.0x = 5x)
+- Regime 2,4 (Volatile): Use REDUCED leverage (0.6x = 3x)
+- Regime 5 (Range): Use MINIMUM leverage (0.4x = 2x)
+- Regime 6 (Whipsaw): Use NO leverage (0.2x = 1x)
+- Regime 7-8 (Transitions): Use MINIMUM leverage (0.4x = 2x)
+
+### Trading Bias by Regime
+- Regime 1: LONG_ONLY (aggressive uptrend)
+- Regime 2: LONG_ONLY (cautious uptrend)
+- Regime 3: SHORT_ONLY (aggressive downtrend)
+- Regime 4: SHORT_ONLY (cautious downtrend)
+- Regime 5: BOTH (range trading)
+- Regime 6: AVOID (do not trade)
+- Regime 7: LONG_ONLY (prepare for reversal up)
+- Regime 8: SHORT_ONLY (prepare for reversal down)
+
+### Regime 6 (Whipsaw) - SPECIAL RULES
+- ⚠️ DO NOT ENTER NEW POSITIONS
+- ⚠️ REDUCE EXISTING POSITIONS BY 50%
+- ⚠️ WAIT FOR REGIME CHANGE
+- ⚠️ ONLY HOLD EXISTING POSITIONS IF PROFITABLE
+- ⚠️ USE TIGHT STOPS (0.5-1%)
 
 ## CRITICAL RULES
 
@@ -217,6 +279,8 @@ Provide decisions in this exact JSON format:
 - ⚠️ NEVER hold through funding rate spikes
 - ⚠️ NEVER trade against the 4h trend when available
 - ⚠️ NEVER take large positions without multi-timeframe confirmation
+- ⚠️ NEVER ignore market regime - adjust position sizing accordingly
+- ⚠️ NEVER trade in Regime 6 (Whipsaw) - capital preservation is priority
 
 ## MULTI-TIMEFRAME SUMMARY
 
