@@ -51,8 +51,10 @@ export class X402PaymentClient {
     const privateKey = config.X402_PRIVATE_KEY as `0x${string}`
     this.account = privateKeyToAccount(privateKey)
 
-    // Initialize viem client for Base chain
-    const rpcUrl = 'https://mainnet.base.org'
+    // Initialize viem client for Base chain (use appropriate RPC based on network)
+    const rpcUrl = this.network === 'base-sepolia' 
+      ? 'https://sepolia.base.org'
+      : 'https://mainnet.base.org'
     
     this.publicClient = createPublicClient({
       chain: base,
@@ -61,6 +63,7 @@ export class X402PaymentClient {
 
     logger.info(`[x402] Initialized with account: ${this.account.address}`)
     logger.info(`[x402] Network: ${this.network}`)
+    logger.info(`[x402] RPC URL: ${rpcUrl}`)
   }
 
   /**
@@ -127,9 +130,12 @@ export class X402PaymentClient {
    */
   private async fetchBalanceFromRPC(): Promise<number> {
     try {
-      // USDC on Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48
-      // Use getAddress to normalize and validate checksums
-      const USDC_ADDRESS = getAddress('0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48')
+      // USDC addresses:
+      // Base Mainnet: 0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48
+      // Base Sepolia: 0x036CbD53842c5426634e7929541eC2318f3dCF7e
+      const USDC_ADDRESS = this.network === 'base-sepolia'
+        ? getAddress('0x036CbD53842c5426634e7929541eC2318f3dCF7e')
+        : getAddress('0x833589fCD6eDb6E08f4c7C32D4f71b1566dA7c48')
       const walletAddress = getAddress(this.account.address)
       
       // Standard ERC20 ABI for balanceOf
