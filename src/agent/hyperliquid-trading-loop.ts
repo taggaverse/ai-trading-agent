@@ -291,44 +291,96 @@ export class HyperliquidTradingLoop {
     try {
       logger.info('   [Dreams LLM] Calling Dreams Router with x402 payment...')
 
-      // Initialize Dreams LLM client
-      const llmClient = new DreamsLLMClient()
+      if (!this.dreamsRouter) {
+        throw new Error('Dreams Router not initialized')
+      }
 
-      // Build user prompt with full context including performance history
-      const userPrompt = llmClient.buildUserPrompt({
-        balance: context.account?.balance || 0,
-        positions: context.account?.positions || [],
-        indicators: context.marketData || {},
-        totalTrades: context.account?.totalTrades || 0,
-        totalPnL: context.account?.totalPnL || 0,
-        performance: context.performance || {}
-      })
+      // Build user prompt
+      const userPrompt = `
+## CURRENT PORTFOLIO STATE
 
-      // Call LLM via x402
-      logger.info('   [Dreams LLM] Sending request with x402 payment...')
-      const llmDecisions = await llmClient.callLLM(
-        NOCTURNE_TRADING_SYSTEM_PROMPT,
-        userPrompt
-      )
+Balance: $${context.account?.balance?.toFixed(2) || '0.00'}
+Total Trades: ${context.account?.totalTrades || 0}
+Total PnL: $${context.account?.totalPnL?.toFixed(2) || '0.00'}
 
-      // Convert to TradeDecision format
-      const decisions: TradeDecision[] = llmDecisions.map((d: any) => ({
-        asset: d.asset,
-        action: d.action,
-        rationale: d.rationale,
-        entryPrice: d.entryPrice,
-        takeProfit: d.takeProfit,
-        stopLoss: d.stopLoss,
-        positionSize: d.positionSize || this.config.maxPositionSize,
-        exitPlan: d.exitPlan
-      }))
+Current Positions:
+${context.account?.positions?.map((p: any) => `${p.asset}: ${p.size} @ $${p.currentPrice} (PnL: $${p.pnl})`).join('\n') || 'None'}
+
+## MARKET DATA
+
+Technical Indicators (5m):
+${Object.entries(context.marketData || {})
+  .map(([asset, data]: [string, any]) => {
+    const rsi = typeof data['5m']?.rsi === 'number' ? data['5m'].rsi.toFixed(2) : 'N/A'
+    const macd = typeof data['5m']?.macd === 'number' ? data['5m'].macd.toFixed(4) : 'N/A'
+    return `${asset}: RSI=${rsi}, MACD=${macd}`
+  })
+  .join('\n') || 'None'}
+
+## TRADING INSTRUCTIONS
+
+Use FIXED STRATEGY based on technical signals only:
+- Apply the same rules to every asset
+- Do NOT adjust based on past performance
+- Do NOT increase size after wins or reduce after losses
+- Do NOT favor or avoid specific assets based on history
+
+Provide trading decisions in JSON format:
+{
+  "decisions": [
+    {
+      "asset": "BTC",
+      "action": "BUY|SELL|HOLD",
+      "rationale": "Clear technical explanation",
+      "entryPrice": optional_number,
+      "takeProfit": optional_number,
+      "stopLoss": optional_number,
+      "positionSize": optional_number,
+      "exitPlan": optional_string
+    }
+  ]
+}
+
+Only include decisions for assets with clear technical signals. Prioritize capital preservation.
+`
+
+      // Call LLM via Dreams Router
+      logger.info('   [Dreams LLM] Sending request to Dreams Router...')
+      const response = await this.dreamsRouter('google-vertex/gemini-2.5-flash', [
+        {
+          role: 'system',
+          content: NOCTURNE_TRADING_SYSTEM_PROMPT
+        },
+        {
+          role: 'user',
+          content: userPrompt
+        }
+      ])
+
+      // Parse response
+      let decisions: TradeDecision[] = []
+      if (response && response.message && response.message.content) {
+        const content = response.message.content
+        try {
+          const parsed = JSON.parse(content)
+          decisions = parsed.decisions || []
+        } catch (parseError) {
+          logger.warn('   ⚠️  Failed to parse LLM response as JSON:', parseError)
+          // Try to extract JSON from response
+          const jsonMatch = content.match(/\{[\s\S]*\}/)
+          if (jsonMatch) {
+            const parsed = JSON.parse(jsonMatch[0])
+            decisions = parsed.decisions || []
+          }
+        }
+      }
 
       logger.info(`   ✓ LLM returned ${decisions.length} decisions`)
-      logger.info(`   ✓ USDC spent: $${llmClient.getCostPerCall()}`)
+      logger.info(`   ✓ x402 payment processed`)
       
       // Record successful LLM call
       if (this.paymentManager) {
-        this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, true, `Generated ${decisions.length} decisions`)
+        this.paymentManager.recordPayment('llm', 0.1, true, `Generated ${decisions.length} decisions`)
       }
 
       return decisions

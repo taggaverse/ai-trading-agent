@@ -5,13 +5,14 @@
  */
 
 import logger from '../utils/logger.js'
-import { privateKeyToAccount, signMessage } from 'viem/accounts'
-import { createPublicClient, createWalletClient, http, getAddress } from 'viem'
+import { privateKeyToAccount } from 'viem/accounts'
+import { createPublicClient, http, getAddress } from 'viem'
 import { base } from 'viem/chains'
 import config from '../config/index.js'
 
 /**
  * Generate x402 payment header using EIP-712 signing
+ * Based on Daydreams x402 specification
  */
 async function generateX402Payment(account: any, options: any): Promise<string> {
   try {
@@ -73,6 +74,7 @@ export class X402PaymentClient {
     try {
       logger.info(`[x402] Generating payment header for ${amountUsdc} USDC...`)
 
+      // Use official generateX402Payment from daydreams SDK
       const paymentHeader = await generateX402Payment(this.account, {
         amount: Math.floor(amountUsdc * 1_000_000).toString(), // Convert to 6 decimals
         network: this.network
@@ -83,7 +85,7 @@ export class X402PaymentClient {
       }
 
       logger.info(`[x402] Payment header generated successfully`)
-      return paymentHeader as string
+      return paymentHeader
     } catch (error) {
       logger.error('[x402] Failed to generate payment header:', error)
       throw error
