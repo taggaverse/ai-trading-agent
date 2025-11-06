@@ -1,8 +1,8 @@
 /**
  * Technical Indicators Client
- * Fetches technical indicators from x402 Questflow endpoint
- * Provides cryptocurrency analysis: long/short ratios, trading hotness, technical trends, capital flows, risk
- * Uses x402 micropayments for each API call
+ * Fetches technical indicators from TAAPI Bulk API
+ * Uses single bulk POST request to fetch 15+ indicators at once
+ * Supports multiple exchanges with fallback: binance -> bybit -> gate
  */
 
 import logger from '../utils/logger.js'
@@ -10,22 +10,52 @@ import axios from 'axios'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 
 export interface Indicators {
+  // Momentum Indicators
   rsi: number
   macd: {
     value: number
     signal: number
     histogram: number
   }
+  stoch: {
+    k: number
+    d: number
+  }
+  cci: number
+  adx: number
+  
+  // Trend Indicators
   ema: {
     ema20: number
     ema50: number
     ema200: number
   }
+  sma: {
+    sma20: number
+    sma50: number
+    sma200: number
+  }
+  dema: number
+  
+  // Bollinger Bands
+  bb: {
+    upper: number
+    middle: number
+    lower: number
+  }
+  
+  // Volume Indicators
+  obv: number
+  cmf: number
+  vosc: number
+  
+  // Volatility
   atr: number
+  bbw: number
+  
+  // Additional
+  ao: number // Awesome Oscillator
   timestamp: number
-  longShortRatio?: number
-  tradingHotness?: number
-  riskScore?: number
 }
 
 export class IndicatorsClient {
@@ -48,6 +78,7 @@ export class IndicatorsClient {
 
   /**
    * Get all technical indicators for an asset and timeframe using TAAPI Bulk API
+   * Single bulk POST request fetches 15+ indicators at once
    * Tries multiple exchanges with fallback: binance -> bybit -> gate
    */
   async getIndicators(asset: string, timeframe: string): Promise<Indicators> {
@@ -64,13 +95,14 @@ export class IndicatorsClient {
       
       for (const exchange of exchanges) {
         try {
-          logger.info(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}...`)
+          logger.debug(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}...`)
           const result = await this.fetchIndicatorsFromExchange(asset, timeframe, exchange)
           if (result) {
+            logger.info(`✓ Received ${Object.keys(result).length - 1} indicators for ${asset}/${timeframe} from ${exchange}`)
             return result
           }
         } catch (exchangeError) {
-          logger.warn(`[TAAPI] ${exchange} failed, trying next exchange...`)
+          logger.debug(`[TAAPI] ${exchange} failed, trying next exchange...`)
           continue
         }
       }
@@ -85,7 +117,8 @@ export class IndicatorsClient {
   }
 
   /**
-   * Fetch indicators from a specific exchange
+   * Fetch comprehensive indicators from a specific exchange using bulk API
+   * Single POST request fetches 15+ indicators at once
    */
   private async fetchIndicatorsFromExchange(
     asset: string,
@@ -93,6 +126,7 @@ export class IndicatorsClient {
     exchange: string
   ): Promise<Indicators | null> {
     try {
+      // Comprehensive indicator list for trading analysis
       const payload = {
         secret: this.apiKey,
         construct: {
@@ -100,12 +134,36 @@ export class IndicatorsClient {
           symbol: `${asset}/USDT`,
           interval: this.mapTimeframe(timeframe),
           indicators: [
-            { indicator: 'rsi' },
+            // Momentum Indicators
+            { indicator: 'rsi', period: 14 },
             { indicator: 'macd' },
+            { indicator: 'stoch' },
+            { indicator: 'cci', period: 20 },
+            { indicator: 'adx', period: 14 },
+            
+            // Trend Indicators
             { indicator: 'ema', period: 20 },
             { indicator: 'ema', period: 50 },
             { indicator: 'ema', period: 200 },
-            { indicator: 'atr' }
+            { indicator: 'sma', period: 20 },
+            { indicator: 'sma', period: 50 },
+            { indicator: 'sma', period: 200 },
+            { indicator: 'dema', period: 20 },
+            
+            // Bollinger Bands
+            { indicator: 'bbands', period: 20 },
+            
+            // Volume Indicators
+            { indicator: 'obv' },
+            { indicator: 'cmf', period: 20 },
+            { indicator: 'vosc', short_period: 10, long_period: 50 },
+            
+            // Volatility
+            { indicator: 'atr', period: 14 },
+            { indicator: 'bbw', period: 20 },
+            
+            // Additional
+            { indicator: 'ao' }
           ]
         }
       }
@@ -117,43 +175,82 @@ export class IndicatorsClient {
           headers: {
             'Content-Type': 'application/json'
           },
-          timeout: 10000
+          timeout: 15000
         }
       )
 
       if (response.data && response.data.data && Array.isArray(response.data.data)) {
-        logger.info(`✓ Received indicators for ${asset} from TAAPI (${exchange})`)
         const data = response.data.data
+        
+        // Helper function to safely extract values
+        const getValue = (indicator: string, period?: number, field: string = 'value'): number => {
+          const item = data.find((d: any) => {
+            if (period) {
+              return d.indicator === indicator && d.period === period
+            }
+            return d.indicator === indicator
+          })
+          return item && item[field] ? parseFloat(item[field]) : 0
+        }
 
-        // Extract values from the response
-        const rsiData = data.find((d: any) => d.indicator === 'rsi')
-        const macdData = data.find((d: any) => d.indicator === 'macd')
-        const ema20Data = data.find((d: any) => d.indicator === 'ema' && d.period === 20)
-        const ema50Data = data.find((d: any) => d.indicator === 'ema' && d.period === 50)
-        const ema200Data = data.find((d: any) => d.indicator === 'ema' && d.period === 200)
-        const atrData = data.find((d: any) => d.indicator === 'atr')
-
-        return {
-          rsi: rsiData?.value ? parseFloat(rsiData.value) : 50,
+        // Build comprehensive indicators object
+        const indicators: Indicators = {
+          // Momentum
+          rsi: getValue('rsi', 14),
           macd: {
-            value: macdData?.value ? parseFloat(macdData.value) : 0,
-            signal: macdData?.signal ? parseFloat(macdData.signal) : 0,
-            histogram: macdData?.histogram ? parseFloat(macdData.histogram) : 0
+            value: getValue('macd', undefined, 'value'),
+            signal: getValue('macd', undefined, 'signal'),
+            histogram: getValue('macd', undefined, 'histogram')
           },
+          stoch: {
+            k: getValue('stoch', undefined, 'k'),
+            d: getValue('stoch', undefined, 'd')
+          },
+          cci: getValue('cci', 20),
+          adx: getValue('adx', 14),
+          
+          // Trend
           ema: {
-            ema20: ema20Data?.value ? parseFloat(ema20Data.value) : 42000,
-            ema50: ema50Data?.value ? parseFloat(ema50Data.value) : 41500,
-            ema200: ema200Data?.value ? parseFloat(ema200Data.value) : 41000
+            ema20: getValue('ema', 20),
+            ema50: getValue('ema', 50),
+            ema200: getValue('ema', 200)
           },
-          atr: atrData?.value ? parseFloat(atrData.value) : 500,
+          sma: {
+            sma20: getValue('sma', 20),
+            sma50: getValue('sma', 50),
+            sma200: getValue('sma', 200)
+          },
+          dema: getValue('dema', 20),
+          
+          // Bollinger Bands
+          bb: {
+            upper: getValue('bbands', 20, 'upper'),
+            middle: getValue('bbands', 20, 'middle'),
+            lower: getValue('bbands', 20, 'lower')
+          },
+          
+          // Volume
+          obv: getValue('obv'),
+          cmf: getValue('cmf', 20),
+          vosc: getValue('vosc'),
+          
+          // Volatility
+          atr: getValue('atr', 14),
+          bbw: getValue('bbw', 20),
+          
+          // Additional
+          ao: getValue('ao'),
+          
           timestamp: Date.now()
         }
+
+        return indicators
       } else {
-        logger.warn(`[TAAPI] Invalid response from ${exchange} for ${asset}/${timeframe}`)
+        logger.debug(`[TAAPI] Invalid response from ${exchange} for ${asset}/${timeframe}`)
         return null
       }
     } catch (error) {
-      logger.warn(`[TAAPI] ${exchange} failed for ${asset}/${timeframe}: ${error instanceof Error ? error.message : error}`)
+      logger.debug(`[TAAPI] ${exchange} failed for ${asset}/${timeframe}: ${error instanceof Error ? error.message : error}`)
       return null
     }
   }
@@ -172,92 +269,60 @@ export class IndicatorsClient {
     return mapping[timeframe] || '5m'
   }
 
-  /**
-   * Parse x402 response into standard indicator format
-   */
-  private parseIndicators(data: any): Indicators {
-    return {
-      longShortRatio: data.long_short_ratio || 1.0,
-      tradingHotness: data.trading_hotness || 50,
-      riskScore: data.risk_score || 50,
-      rsi: this.deriveRSI(data),
-      macd: this.deriveMACD(data),
-      ema: this.deriveEMA(data),
-      atr: this.deriveATR(data),
-      timestamp: Date.now()
-    }
-  }
 
   /**
-   * Derive RSI from x402 data
-   */
-  private deriveRSI(data: any): number {
-    const hotness = data.trading_hotness || 50
-    const trend = data.technical_trends?.trend || 'neutral'
-    
-    let rsi = hotness
-    if (trend === 'bullish') rsi += 10
-    if (trend === 'bearish') rsi -= 10
-    
-    return Math.max(0, Math.min(100, rsi))
-  }
-
-  /**
-   * Derive MACD from x402 data
-   */
-  private deriveMACD(data: any): any {
-    const trends = data.technical_trends || {}
-    return {
-      value: (trends.macd || 0) * 100,
-      signal: ((trends.macd || 0) * 100) * 0.9,
-      histogram: ((trends.macd || 0) * 100) * 0.1
-    }
-  }
-
-  /**
-   * Derive EMA from x402 data
-   */
-  private deriveEMA(data: any): any {
-    const basePrice = 42000 + Math.random() * 2000
-    const hotness = data.trading_hotness || 50
-    const multiplier = hotness / 100
-    
-    return {
-      ema20: basePrice * (1 + multiplier * 0.02),
-      ema50: basePrice * (1 + multiplier * 0.01),
-      ema200: basePrice
-    }
-  }
-
-  /**
-   * Derive ATR from x402 data
-   */
-  private deriveATR(data: any): number {
-    const riskScore = data.risk_score || 50
-    // Higher risk = higher ATR (more volatility)
-    return 300 + (riskScore / 100) * 400
-  }
-
-  /**
-   * Get mock indicators (fallback)
+   * Get mock indicators (fallback) - returns neutral/random values
    */
   private getMockIndicators(): Indicators {
+    const basePrice = 42000 + Math.random() * 2000
+    
     return {
-      longShortRatio: 1.0 + Math.random() * 0.5,
-      tradingHotness: 50 + Math.random() * 30,
-      riskScore: 30 + Math.random() * 40,
-      rsi: 50 + Math.random() * 20,
+      // Momentum (neutral values)
+      rsi: 45 + Math.random() * 10,
       macd: {
-        value: Math.random() * 100 - 50,
-        signal: Math.random() * 100 - 50,
-        histogram: Math.random() * 100 - 50
+        value: Math.random() * 50 - 25,
+        signal: Math.random() * 50 - 25,
+        histogram: Math.random() * 50 - 25
       },
+      stoch: {
+        k: 40 + Math.random() * 20,
+        d: 40 + Math.random() * 20
+      },
+      cci: Math.random() * 100 - 50,
+      adx: 20 + Math.random() * 20,
+      
+      // Trend
       ema: {
-        ema20: 42000 + Math.random() * 1000,
-        ema50: 41500 + Math.random() * 1000,
-        ema200: 41000 + Math.random() * 1000
+        ema20: basePrice * (1 + (Math.random() - 0.5) * 0.02),
+        ema50: basePrice * (1 + (Math.random() - 0.5) * 0.01),
+        ema200: basePrice
       },
-      atr: 500 + Math.random() * 200,
+      sma: {
+        sma20: basePrice * (1 + (Math.random() - 0.5) * 0.02),
+        sma50: basePrice * (1 + (Math.random() - 0.5) * 0.01),
+        sma200: basePrice
+      },
+      dema: basePrice * (1 + (Math.random() - 0.5) * 0.015),
+      
+      // Bollinger Bands
+      bb: {
+        upper: basePrice * 1.02,
+        middle: basePrice,
+        lower: basePrice * 0.98
+      },
+      
+      // Volume
+      obv: Math.random() * 1000000,
+      cmf: Math.random() * 0.5 - 0.25,
+      vosc: Math.random() * 100 - 50,
+      
+      // Volatility
+      atr: 300 + Math.random() * 400,
+      bbw: Math.random() * 200,
+      
+      // Additional
+      ao: Math.random() * 100 - 50,
+      
       timestamp: Date.now()
     }
   }
@@ -295,15 +360,34 @@ export class IndicatorsClient {
   }
 
   /**
-   * Get x402 analysis data
+   * Get comprehensive analysis data for an asset
    */
-  async getX402Analysis(asset: string): Promise<any> {
+  async getAnalysis(asset: string): Promise<any> {
     const indicators = await this.getIndicators(asset, '5m')
     return {
       asset,
-      longShortRatio: indicators.longShortRatio,
-      tradingHotness: indicators.tradingHotness,
-      riskScore: indicators.riskScore,
+      momentum: {
+        rsi: indicators.rsi,
+        macd: indicators.macd,
+        stoch: indicators.stoch,
+        cci: indicators.cci,
+        adx: indicators.adx
+      },
+      trend: {
+        ema: indicators.ema,
+        sma: indicators.sma,
+        dema: indicators.dema
+      },
+      volatility: {
+        atr: indicators.atr,
+        bbw: indicators.bbw,
+        bb: indicators.bb
+      },
+      volume: {
+        obv: indicators.obv,
+        cmf: indicators.cmf,
+        vosc: indicators.vosc
+      },
       timestamp: indicators.timestamp
     }
   }
