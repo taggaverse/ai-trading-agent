@@ -10,6 +10,8 @@ export class BalanceManager {
 
   constructor(account: any) {
     this.account = account
+    logger.debug(`[BalanceManager] Account keys: ${Object.keys(account).join(', ')}`)
+    logger.debug(`[BalanceManager] Has getBalance: ${typeof account.getBalance}`)
     this.minBalance = BigInt(Math.floor(parseFloat(config.MIN_BALANCE_USDC) * 1000000))
     this.refillThreshold = BigInt(Math.floor(parseFloat(config.REFILL_THRESHOLD_USDC) * 1000000))
     this.refillAmount = BigInt(Math.floor(parseFloat(config.REFILL_AMOUNT_USDC) * 1000000))

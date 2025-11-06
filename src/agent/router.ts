@@ -20,7 +20,7 @@ export async function initializeDreamsRouter(): Promise<DreamsRouterInstance> {
     logger.info(`x402 account initialized: ${config.X402_WALLET_ADDRESS}`)
 
     // Create router with x402 payments
-    const { dreamsRouter } = await createDreamsRouterAuth(account, {
+    const { dreamsRouter, account: accountWithMethods } = await createDreamsRouterAuth(account, {
       payments: {
         amount: "100000", // $0.10 USDC per request
         network: config.X402_NETWORK,
@@ -28,8 +28,10 @@ export async function initializeDreamsRouter(): Promise<DreamsRouterInstance> {
     })
 
     logger.info("Dreams Router initialized successfully")
+    logger.debug(`[Router] Account keys: ${Object.keys(accountWithMethods).join(', ')}`)
+    logger.debug(`[Router] Has getBalance: ${typeof accountWithMethods.getBalance}`)
 
-    return { dreamsRouter, account }
+    return { dreamsRouter, account: accountWithMethods }
   } catch (error) {
     logger.error("Failed to initialize Dreams Router:", error)
     throw error
