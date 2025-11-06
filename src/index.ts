@@ -20,7 +20,7 @@ import { IndicatorsClient } from "./agent/indicators-client.js"
 import { HyperliquidTradingLoop } from "./agent/hyperliquid-trading-loop.js"
 import { X402PaymentManager } from "./agent/x402-payment-manager.js"
 import { AixbtcClient } from "./agent/aixbtc-client.js"
-import { X402LLMProvider, createX402LLMProvider } from "./agent/x402-llm-provider.js"
+import { createX402LLMProvider } from "./agent/x402-llm-provider.js"
 
 const app = express()
 
@@ -70,7 +70,7 @@ let tradingLoopRef: any = null
 
 // Store reference to LLM provider
 let llmProvider: any = null
-let llmProviderType: string = 'openai'
+let llmProviderType: string = 'x402'
 
 // Diary endpoint (recent trading decisions)
 app.get("/diary", (req, res) => {
@@ -304,29 +304,22 @@ async function main() {
     const initialBalance = await balanceManager.getBalance()
     logger.info(`Initial balance: $${initialBalance}`)
 
-    // Initialize LLM Provider (with x402 fallback)
-    logger.info("Initializing LLM Provider...")
-    if (process.env.OPENAI_API_KEY) {
-      logger.info("✓ Using OpenAI API for LLM")
-      llmProvider = { type: 'openai' } // Placeholder for OpenAI
-      llmProviderType = 'openai'
-    } else {
-      logger.warn("⚠️  OpenAI API key not configured, using x402 fallback")
-      llmProvider = createX402LLMProvider()
-      llmProviderType = 'x402'
-      logger.info("✓ x402 LLM Provider initialized (Daydreams Router with USDC payments)")
-      
-      // Check x402 balance
-      try {
-        const x402Balance = await llmProvider.getPaymentClient().getUSDCBalance()
-        const costPerCall = llmProvider.getCostPerCall()
-        const estimatedCalls = Math.floor(x402Balance / costPerCall)
-        logger.info(`   Balance: $${x402Balance.toFixed(2)} USDC`)
-        logger.info(`   Cost per call: $${costPerCall}`)
-        logger.info(`   Estimated calls: ${estimatedCalls}`)
-      } catch (error) {
-        logger.warn(`   Failed to check x402 balance: ${error instanceof Error ? error.message : 'Unknown error'}`)
-      }
+    // Initialize x402 LLM Provider (Daydreams Router with USDC payments)
+    logger.info("Initializing x402 LLM Provider...")
+    llmProvider = createX402LLMProvider()
+    llmProviderType = 'x402'
+    logger.info("✓ x402 LLM Provider initialized (Daydreams Router with USDC payments)")
+    
+    // Check x402 balance
+    try {
+      const x402Balance = await llmProvider.getPaymentClient().getUSDCBalance()
+      const costPerCall = llmProvider.getCostPerCall()
+      const estimatedCalls = Math.floor(x402Balance / costPerCall)
+      logger.info(`   Balance: $${x402Balance.toFixed(2)} USDC`)
+      logger.info(`   Cost per call: $${costPerCall}`)
+      logger.info(`   Estimated calls: ${estimatedCalls}`)
+    } catch (error) {
+      logger.warn(`   Failed to check x402 balance: ${error instanceof Error ? error.message : 'Unknown error'}`)
     }
 
     // Initialize x402 research client
