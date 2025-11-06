@@ -156,19 +156,24 @@ export class HyperliquidTradingLoop {
       // Step 2: Fetch technical indicators for each asset (5m only to respect TAAPI rate limits)
       logger.info('Step 2: Fetching technical indicators (5m timeframe)...')
       const indicators: Record<string, any> = {}
+      
+      // TAAPI free tier: 1 request per 15 seconds, 20 calcs max per request
+      // 3 assets (BTC, ETH, XRP) × 8 indicators = 24 calcs (need to split into 2 requests or reduce)
+      // Using 20-second delays for buffer safety
       for (let i = 0; i < this.config.assets.length; i++) {
         const asset = this.config.assets[i]
         try {
-          // Fetch 5m indicators from TAAPI: 1 request per 15s, 80 calcs/min, 20 calcs/request
-          // 2 assets × 1 timeframe × 10 indicators = 20 calculations (max per request)
+          logger.info(`   Fetching ${asset} indicators from TAAPI...`)
           indicators[asset] = {
             '5m': await this.indicatorsClient.getIndicators(asset, '5m')
           }
           logger.info(`   ✓ ${asset} 5m indicators fetched from TAAPI`)
           
-          // Add 2 second delay between requests to respect TAAPI rate limits (1 request per 15s)
+          // Add 20-second delay between requests to respect TAAPI rate limits (1 request per 15s)
+          // 20s > 15s provides buffer for network latency and processing
           if (i < this.config.assets.length - 1) {
-            await this.sleep(2000)
+            logger.info(`   Waiting 20 seconds before next TAAPI request...`)
+            await this.sleep(20000)
           }
         } catch (error) {
           logger.warn(`   ⚠️  Failed to fetch ${asset} indicators from TAAPI, will use Hyperliquid price data:`, error instanceof Error ? error.message : error)

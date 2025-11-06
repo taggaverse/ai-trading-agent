@@ -396,7 +396,7 @@ async function main() {
     
     const tradingLoop = new HyperliquidTradingLoop(hyperliquidAPI, indicatorsClient, {
       tradingInterval: tradingInterval,
-      assets: ['BTC', 'ETH'],
+      assets: ['BTC', 'ETH', 'XRP'],
       maxPositionSize: maxPositionSize,
       maxLeverage: maxLeverage
     }, dreamsRouter, paymentManager)
