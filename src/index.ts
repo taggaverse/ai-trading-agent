@@ -333,7 +333,9 @@ async function main() {
     const hyperliquidAPI = new HyperliquidAPI()
     logger.info("✓ HyperliquidAPI initialized")
 
-    const indicatorsClient = new IndicatorsClient(config.TAAPI_API_KEY || 'mock-key')
+    const tapiKey = config.TAAPI_API_KEY || 'mock-key'
+    logger.info(`Initializing IndicatorsClient with TAAPI API Key: ${tapiKey === 'mock-key' ? 'NOT CONFIGURED (using mock)' : 'configured'}`)
+    const indicatorsClient = new IndicatorsClient(tapiKey)
     logger.info("✓ IndicatorsClient initialized")
 
     // Initialize Hyperliquid extension

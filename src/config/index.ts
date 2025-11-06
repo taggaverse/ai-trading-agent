@@ -15,17 +15,26 @@ function parseEnvFile(filePath: string): Record<string, string> {
     const content = fs.readFileSync(filePath, 'utf-8')
     const lines = content.split('\n')
     
-    for (const line of lines) {
+    console.log(`[Config Parser] Reading ${lines.length} lines from ${filePath}`)
+    
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i]
       const trimmed = line.trim()
       if (!trimmed || trimmed.startsWith('#')) continue
       
-      const [key, ...valueParts] = trimmed.split('=')
-      if (key && valueParts.length > 0) {
-        const value = valueParts.join('=').trim()
+      // Split on first = only to preserve values with = in them
+      const eqIndex = trimmed.indexOf('=')
+      if (eqIndex > 0) {
+        const key = trimmed.substring(0, eqIndex).trim()
+        const value = trimmed.substring(eqIndex + 1).trim()
         // Remove quotes if present
-        env[key.trim()] = value.replace(/^["']|["']$/g, '')
+        env[key] = value.replace(/^["']|["']$/g, '')
+        if (key === 'TAAPI_API_KEY' || key.includes('TAAPI')) {
+          console.log(`[Config Parser] Line ${i}: Found ${key} = ${value.substring(0, 30)}...`)
+        }
       }
     }
+    console.log(`[Config Parser] Parsed ${Object.keys(env).length} env variables`)
   } catch (error) {
     console.error(`Failed to parse ${filePath}:`, error)
   }
@@ -92,6 +101,10 @@ let config: Config
 
 try {
   config = configSchema.parse(process.env)
+  
+  // Log TAAPI key status
+  console.log(`[Config] TAAPI_API_KEY: ${config.TAAPI_API_KEY ? 'configured' : 'NOT CONFIGURED'}`)
+  console.log(`[Config] process.env.TAAPI_API_KEY: ${process.env.TAAPI_API_KEY ? 'present' : 'missing'}`)
   
   // Derive HYPERLIQUID_WALLET_ADDRESS from private key if not provided
   if (!config.HYPERLIQUID_WALLET_ADDRESS && config.HYPERLIQUID_PRIVATE_KEY) {
