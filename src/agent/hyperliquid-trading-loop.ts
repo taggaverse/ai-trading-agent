@@ -153,22 +153,29 @@ export class HyperliquidTradingLoop {
         }
       }
 
-      // Step 2: Fetch technical indicators for each asset
-      logger.info('Step 2: Fetching technical indicators...')
+      // Step 2: Fetch technical indicators for each asset (5m only to respect TAAPI rate limits)
+      logger.info('Step 2: Fetching technical indicators (5m timeframe)...')
       const indicators: Record<string, any> = {}
-      for (const asset of this.config.assets) {
+      for (let i = 0; i < this.config.assets.length; i++) {
+        const asset = this.config.assets[i]
         try {
+          // Fetch 5m indicators from TAAPI: 1 request per 15s, 80 calcs/min, 20 calcs/request
+          // 2 assets × 1 timeframe × 10 indicators = 20 calculations (max per request)
           indicators[asset] = {
-            '5m': await this.indicatorsClient.getIndicators(asset, '5m'),
-            '4h': await this.indicatorsClient.getIndicators(asset, '4h')
+            '5m': await this.indicatorsClient.getIndicators(asset, '5m')
           }
-          logger.info(`   ✓ ${asset} indicators fetched`)
+          logger.info(`   ✓ ${asset} 5m indicators fetched from TAAPI`)
+          
+          // Add 2 second delay between requests to respect TAAPI rate limits (1 request per 15s)
+          if (i < this.config.assets.length - 1) {
+            await this.sleep(2000)
+          }
         } catch (error) {
-          logger.warn(`   ✗ Failed to fetch ${asset} indicators, using mock:`, error)
-          // Use mock indicators
+          logger.warn(`   ⚠️  Failed to fetch ${asset} indicators from TAAPI, will use Hyperliquid price data:`, error instanceof Error ? error.message : error)
+          // Don't use mock - let the LLM use price data from Hyperliquid
+          // Set to null so LLM knows to use alternative data
           indicators[asset] = {
-            '5m': { rsi: 50, macd: 0, signal: 0 },
-            '4h': { rsi: 50, macd: 0, signal: 0 }
+            '5m': null
           }
         }
       }
@@ -295,7 +302,25 @@ export class HyperliquidTradingLoop {
         throw new Error('Dreams Router not initialized')
       }
 
-      // Build user prompt
+      // Build user prompt with available data
+      const marketDataStr = Object.entries(context.marketData || {})
+        .map(([asset, data]: [string, any]) => {
+          if (data['5m'] === null) {
+            // No TAAPI indicators available - use price data from positions
+            const position = context.account?.positions?.find((p: any) => p.asset === asset)
+            if (position) {
+              return `${asset}: Current Price: $${position.currentPrice}, Position: ${position.size} (PnL: $${position.pnl})`
+            }
+            return `${asset}: Price data from portfolio (no technical indicators available)`
+          }
+          // Use TAAPI indicators if available
+          const rsi = typeof data['5m']?.rsi === 'number' ? data['5m'].rsi.toFixed(2) : 'N/A'
+          const macd = typeof data['5m']?.macd === 'object' ? data['5m'].macd.value.toFixed(4) : 'N/A'
+          const atr = typeof data['5m']?.atr === 'number' ? data['5m'].atr.toFixed(2) : 'N/A'
+          return `${asset}: RSI=${rsi}, MACD=${macd}, ATR=${atr}`
+        })
+        .join('\n')
+
       const userPrompt = `
 ## CURRENT PORTFOLIO STATE
 
@@ -308,19 +333,15 @@ ${context.account?.positions?.map((p: any) => `${p.asset}: ${p.size} @ $${p.curr
 
 ## MARKET DATA
 
-Technical Indicators (5m):
-${Object.entries(context.marketData || {})
-  .map(([asset, data]: [string, any]) => {
-    const rsi = typeof data['5m']?.rsi === 'number' ? data['5m'].rsi.toFixed(2) : 'N/A'
-    const macd = typeof data['5m']?.macd === 'number' ? data['5m'].macd.toFixed(4) : 'N/A'
-    return `${asset}: RSI=${rsi}, MACD=${macd}`
-  })
-  .join('\n') || 'None'}
+Available Data (Technical Indicators or Price Data):
+${marketDataStr || 'None'}
 
 ## TRADING INSTRUCTIONS
 
-Use FIXED STRATEGY based on technical signals only:
+Use FIXED STRATEGY based on available signals:
 - Apply the same rules to every asset
+- Use technical indicators if available (RSI, MACD, ATR)
+- If indicators unavailable, use price trends and position data
 - Do NOT adjust based on past performance
 - Do NOT increase size after wins or reduce after losses
 - Do NOT favor or avoid specific assets based on history
@@ -331,7 +352,7 @@ Provide trading decisions in JSON format:
     {
       "asset": "BTC",
       "action": "BUY|SELL|HOLD",
-      "rationale": "Clear technical explanation",
+      "rationale": "Clear explanation of decision",
       "entryPrice": optional_number,
       "takeProfit": optional_number,
       "stopLoss": optional_number,
@@ -341,7 +362,7 @@ Provide trading decisions in JSON format:
   ]
 }
 
-Only include decisions for assets with clear technical signals. Prioritize capital preservation.
+Only include decisions for assets with clear signals. Prioritize capital preservation.
 `
 
       // Call LLM via Dreams Router

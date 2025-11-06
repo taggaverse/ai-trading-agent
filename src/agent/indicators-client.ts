@@ -80,40 +80,39 @@ export class IndicatorsClient {
    * Get all technical indicators for an asset and timeframe using TAAPI Bulk API
    * Single bulk POST request fetches 15+ indicators at once
    * Tries multiple exchanges with fallback: binance -> bybit -> gate
+   * Throws error if all fail (no mock fallback - let caller decide)
    */
   async getIndicators(asset: string, timeframe: string): Promise<Indicators> {
-    try {
-      logger.info(`Fetching indicators for ${asset} (${timeframe}) from TAAPI Bulk API...`)
+    logger.info(`Fetching indicators for ${asset} (${timeframe}) from TAAPI Bulk API...`)
 
-      if (!this.apiKey || this.apiKey === 'mock-key') {
-        logger.warn(`⚠️  TAAPI API key not configured, using mock indicators`)
-        return this.getMockIndicators()
-      }
-
-      // Try multiple exchanges in order of preference
-      const exchanges = ['binance', 'bybit', 'gate']
-      
-      for (const exchange of exchanges) {
-        try {
-          logger.debug(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}...`)
-          const result = await this.fetchIndicatorsFromExchange(asset, timeframe, exchange)
-          if (result) {
-            logger.info(`✓ Received ${Object.keys(result).length - 1} indicators for ${asset}/${timeframe} from ${exchange}`)
-            return result
-          }
-        } catch (exchangeError) {
-          logger.debug(`[TAAPI] ${exchange} failed, trying next exchange...`)
-          continue
-        }
-      }
-
-      // If all exchanges fail, fall back to mock
-      logger.warn(`✗ Failed to fetch indicators from all exchanges for ${asset}/${timeframe}, using mock`)
-      return this.getMockIndicators()
-    } catch (error) {
-      logger.warn(`✗ Failed to fetch indicators from TAAPI for ${asset}:`, error instanceof Error ? error.message : error)
-      return this.getMockIndicators()
+    if (!this.apiKey || this.apiKey === 'mock-key') {
+      throw new Error(`TAAPI API key not configured`)
     }
+
+    // Try multiple exchanges in order of preference
+    const exchanges = ['binance', 'bybit', 'gate']
+    const errors: string[] = []
+    
+    for (const exchange of exchanges) {
+      try {
+        logger.debug(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}...`)
+        const result = await this.fetchIndicatorsFromExchange(asset, timeframe, exchange)
+        if (result) {
+          logger.info(`✓ Received ${Object.keys(result).length - 1} indicators for ${asset}/${timeframe} from ${exchange}`)
+          return result
+        }
+      } catch (exchangeError) {
+        const msg = exchangeError instanceof Error ? exchangeError.message : String(exchangeError)
+        logger.debug(`[TAAPI] ${exchange} failed: ${msg}`)
+        errors.push(`${exchange}: ${msg}`)
+        continue
+      }
+    }
+
+    // If all exchanges fail, throw error
+    const errorMsg = `Failed to fetch indicators from all exchanges for ${asset}/${timeframe}: ${errors.join('; ')}`
+    logger.warn(`✗ ${errorMsg}`)
+    throw new Error(errorMsg)
   }
 
   /**
@@ -250,7 +249,8 @@ export class IndicatorsClient {
         return null
       }
     } catch (error) {
-      logger.debug(`[TAAPI] ${exchange} failed for ${asset}/${timeframe}: ${error instanceof Error ? error.message : error}`)
+      const errorMsg = error instanceof Error ? error.message : String(error)
+      logger.warn(`[TAAPI] ${exchange} failed for ${asset}/${timeframe}: ${errorMsg}`)
       return null
     }
   }
