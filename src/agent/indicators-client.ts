@@ -64,18 +64,19 @@ export class IndicatorsClient {
       
       for (const exchange of exchanges) {
         try {
+          logger.info(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}...`)
           const result = await this.fetchIndicatorsFromExchange(asset, timeframe, exchange)
           if (result) {
             return result
           }
         } catch (exchangeError) {
-          logger.debug(`[TAAPI] ${exchange} failed, trying next exchange...`)
+          logger.warn(`[TAAPI] ${exchange} failed, trying next exchange...`)
           continue
         }
       }
 
       // If all exchanges fail, fall back to mock
-      logger.warn(`✗ Failed to fetch indicators from all exchanges for ${asset}`)
+      logger.warn(`✗ Failed to fetch indicators from all exchanges for ${asset}/${timeframe}, using mock`)
       return this.getMockIndicators()
     } catch (error) {
       logger.warn(`✗ Failed to fetch indicators from TAAPI for ${asset}:`, error instanceof Error ? error.message : error)
@@ -109,7 +110,6 @@ export class IndicatorsClient {
         }
       }
 
-      logger.debug(`[TAAPI] Trying ${exchange} for ${asset}/${timeframe}`)
       const response = await axios.post(
         this.taapiEndpoint,
         payload,
@@ -149,11 +149,11 @@ export class IndicatorsClient {
           timestamp: Date.now()
         }
       } else {
-        logger.debug(`[TAAPI] Invalid response from ${exchange} for ${asset}`)
+        logger.warn(`[TAAPI] Invalid response from ${exchange} for ${asset}/${timeframe}`)
         return null
       }
     } catch (error) {
-      logger.debug(`[TAAPI] ${exchange} error: ${error instanceof Error ? error.message : error}`)
+      logger.warn(`[TAAPI] ${exchange} failed for ${asset}/${timeframe}: ${error instanceof Error ? error.message : error}`)
       return null
     }
   }
