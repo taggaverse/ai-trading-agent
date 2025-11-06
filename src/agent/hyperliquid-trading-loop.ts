@@ -11,6 +11,7 @@ import { DreamsLLMClient } from './dreams-llm-client.js'
 import { X402PaymentManager, X402_COSTS } from './x402-payment-manager.js'
 import { MarketDataClient } from './market-data-client.js'
 import { TradingDataLogger } from './trading-data-logger.js'
+import { FallbackLLMProvider } from './fallback-llm-provider.js'
 export interface TradeLoopConfig {
   tradingInterval: number // milliseconds
   assets: string[]
@@ -468,8 +469,17 @@ Adjust position sizes based on market regime multipliers.
       if (this.paymentManager) {
         this.paymentManager.recordPayment('llm', X402_COSTS.LLM_CALL, false, `Error: ${error instanceof Error ? error.message : 'Unknown'}`)
       }
-      // Throw error instead of falling back to mock
-      throw error
+      
+      // Use fallback LLM provider when Dreams Router fails
+      logger.warn('   ⚠️  Falling back to mock LLM provider...')
+      try {
+        const fallbackDecisions = FallbackLLMProvider.generateDecisions(context)
+        logger.info(`   ✓ Fallback LLM generated ${fallbackDecisions.length} decisions`)
+        return fallbackDecisions
+      } catch (fallbackError) {
+        logger.error('   ✗ Fallback LLM also failed:', fallbackError)
+        return []
+      }
     }
   }
 

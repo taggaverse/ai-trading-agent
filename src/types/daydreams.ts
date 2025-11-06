@@ -46,45 +46,72 @@ export async function createDreamsRouterAuth(account: any, config: any) {
     try {
       logger.debug(`[Dreams Router] Calling ${model} with ${messages.length} messages`)
       
-      // Try multiple endpoints
+      // Try multiple endpoints with different configurations
       const endpoints = [
-        'https://router.daydreams.systems/v1/chat/completions',
-        'https://api.daydreams.systems/v1/chat/completions',
-        'https://daydreams.systems/v1/chat/completions'
+        {
+          url: 'https://router.daydreams.systems/chat',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        },
+        {
+          url: 'https://router.daydreams.systems/v1/chat/completions',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        },
+        {
+          url: 'https://api.daydreams.systems/v1/chat/completions',
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' }
+        }
       ]
 
       let lastError: any = null
       for (const endpoint of endpoints) {
         try {
-          logger.debug(`[Dreams Router] Trying endpoint: ${endpoint}`)
+          logger.debug(`[Dreams Router] Trying endpoint: ${endpoint.url}`)
           
-          const response = await axios.post(
-            endpoint,
-            {
+          const response = await axios({
+            method: endpoint.method,
+            url: endpoint.url,
+            data: {
               model: model,
               messages: messages,
               temperature: 0.7,
               max_tokens: 2000
             },
-            {
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              timeout: 30000
-            }
-          )
+            headers: endpoint.headers,
+            timeout: 30000,
+            validateStatus: () => true // Accept any status code
+          })
 
-          logger.debug(`[Dreams Router] Response received from ${model}`)
+          logger.debug(`[Dreams Router] Response status: ${response.status}`)
           
-          // Return response in expected format
-          return {
-            message: {
-              content: response.data.choices?.[0]?.message?.content || ''
+          // Check if response is successful
+          if (response.status === 200 || response.status === 201) {
+            logger.debug(`[Dreams Router] Response received from ${model}`)
+            
+            // Handle different response formats
+            const content = 
+              response.data.choices?.[0]?.message?.content ||
+              response.data.message?.content ||
+              response.data.content ||
+              response.data.text ||
+              ''
+            
+            if (content) {
+              return {
+                message: {
+                  content: content
+                }
+              }
             }
+          } else {
+            logger.debug(`[Dreams Router] Endpoint ${endpoint.url} returned status ${response.status}`)
+            logger.debug(`[Dreams Router] Response: ${JSON.stringify(response.data).substring(0, 200)}`)
           }
         } catch (error: any) {
           lastError = error
-          logger.debug(`[Dreams Router] Endpoint ${endpoint} failed: ${error.message}`)
+          logger.debug(`[Dreams Router] Endpoint ${endpoint.url} failed: ${error.message}`)
           continue
         }
       }
